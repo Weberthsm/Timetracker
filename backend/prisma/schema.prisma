@@ -1,0 +1,192 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────────────
+
+enum Role {
+  admin
+  manager
+  member
+}
+
+enum ProjectStatus {
+  active
+  archived
+}
+
+enum TaskStatus {
+  todo
+  in_progress
+  done
+  cancelled
+}
+
+// ─── Models ──────────────────────────────────────────────────────────────────
+
+model User {
+  id                      String                    @id @default(uuid())
+  name                    String                    @db.VarChar(150)
+  email                   String                    @unique @db.VarChar(150)
+  passwordHash            String
+  role                    Role                      @default(member)
+  avatarUrl               String?
+  emailVerifiedAt         DateTime?
+  teamId                  String?
+  team                    Team?                     @relation(fields: [teamId], references: [id])
+  timeEntries             TimeEntry[]
+  emailVerificationTokens EmailVerificationToken[]
+  passwordResetTokens     PasswordResetToken[]
+  refreshTokens           RefreshToken[]
+  createdAt               DateTime                  @default(now())
+  updatedAt               DateTime                  @updatedAt
+
+  @@map("users")
+}
+
+model Team {
+  id           String        @id @default(uuid())
+  name         String        @unique @db.VarChar(150)
+  members      User[]
+  teamProjects TeamProject[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@map("teams")
+}
+
+model Project {
+  id           String        @id @default(uuid())
+  name         String        @db.VarChar(150)
+  description  String?
+  color        String?       @db.VarChar(7)
+  logoUrl      String?
+  status       ProjectStatus @default(active)
+  teamProjects TeamProject[]
+  tasks        Task[]
+  timeEntries  TimeEntry[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@map("projects")
+}
+
+model TeamProject {
+  teamId    String
+  projectId String
+  team      Team    @relation(fields: [teamId], references: [id])
+  project   Project @relation(fields: [projectId], references: [id])
+
+  @@id([teamId, projectId])
+  @@map("team_projects")
+}
+
+model Task {
+  id          String      @id @default(uuid())
+  projectId   String
+  project     Project     @relation(fields: [projectId], references: [id])
+  title       String      @db.VarChar(200)
+  description String?
+  status      TaskStatus  @default(todo)
+  timeEntries TimeEntry[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@map("tasks")
+}
+
+model TimeEntry {
+  id          String    @id @default(uuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id])
+  projectId   String
+  project     Project   @relation(fields: [projectId], references: [id])
+  taskId      String?
+  task        Task?     @relation(fields: [taskId], references: [id])
+  description String?
+  startedAt   DateTime
+  endedAt     DateTime?
+  duration    Int?
+  date        DateTime  @db.Date
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("time_entries")
+}
+
+model EmailVerificationToken {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@map("email_verification_tokens")
+}
+
+model PasswordResetToken {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id])
+  token     String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@map("password_reset_tokens")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@map("refresh_tokens")
+}
+
+model SystemSettings {
+  id                       Int      @id @default(1)
+  requireEmailVerification Boolean  @default(true)
+  updatedAt                DateTime @updatedAt
+  updatedBy                String?
+
+  @@map("system_settings")
+}
+
+model WebhookDestination {
+  id         String            @id @default(uuid())
+  name       String            @db.VarChar(150)
+  url        String
+  secret     String?
+  events     String[]
+  isActive   Boolean           @default(true)
+  createdBy  String
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+  deliveries WebhookDelivery[]
+
+  @@map("webhook_destinations")
+}
+
+model WebhookDelivery {
+  id                   String             @id @default(uuid())
+  webhookDestinationId String
+  destination          WebhookDestination @relation(fields: [webhookDestinationId], references: [id])
+  event                String
+  payload              Json
+  statusCode           Int?
+  responseBody         String?
+  attempt              Int                @default(1)
+  success              Boolean
+  deliveredAt          DateTime           @default(now())
+
+  @@map("webhook_deliveries")
+}

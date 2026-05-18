@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Sort-Object Name)",
+      "PowerShell(Move-Item \"D:\\\\JRSistemas\\\\Projetos\\\\acompanhar-tarefas\\\\To do\\\\TASK-003-prisma-module-seed.md\" \"D:\\\\JRSistemas\\\\Projetos\\\\acompanhar-tarefas\\\\Done\\\\TASK-003-prisma-module-seed.md\" -Force)",
+      "Bash(npm run *)",
+      "Bash(findstr \"vee-validate\\\\|vitest\\\\|vue-test\")",
+      "Bash(npx vitest *)",
+      "Bash(npx tsc *)",
+      "Bash(npm install *)",
+      "Bash(npx playwright *)",
+      "Bash(ls vitest.config*)",
+      "Bash(ls vite.config*)",
+      "Bash(node_modules/.bin/tsc --noEmit)",
+      "Bash(D:/JRSistemas/Projetos/acompanhar-tarefas/frontend/node_modules/.bin/tsc --noEmit -p D:/JRSistemas/Projetos/acompanhar-tarefas/frontend/tsconfig.app.json)",
+      "Bash(D:/JRSistemas/Projetos/acompanhar-tarefas/frontend/node_modules/.bin/vue-tsc --noEmit -p D:/JRSistemas/Projetos/acompanhar-tarefas/frontend/tsconfig.app.json)",
+      "Bash(D:/JRSistemas/Projetos/acompanhar-tarefas/frontend/node_modules/.bin/vitest run *)",
+      "Bash(node -e ' *)"
+    ]
+  }
+}
