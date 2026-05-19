@@ -15,7 +15,16 @@
       "Bash(D:/JRSistemas/Projetos/acompanhar-tarefas/frontend/node_modules/.bin/tsc --noEmit -p D:/JRSistemas/Projetos/acompanhar-tarefas/frontend/tsconfig.app.json)",
       "Bash(D:/JRSistemas/Projetos/acompanhar-tarefas/frontend/node_modules/.bin/vue-tsc --noEmit -p D:/JRSistemas/Projetos/acompanhar-tarefas/frontend/tsconfig.app.json)",
       "Bash(D:/JRSistemas/Projetos/acompanhar-tarefas/frontend/node_modules/.bin/vitest run *)",
-      "Bash(node -e ' *)"
+      "Bash(node -e ' *)",
+      "Bash(npx prisma *)",
+      "Bash(npx dotenv *)",
+      "Bash(set DATABASE_URL=)",
+      "Bash(node -e \"require\\('dotenv'\\).config\\(\\);\")",
+      "Bash(node -e \"require\\('dotenv'\\).config\\(\\); process.stdout.write\\(process.env.DATABASE_URL\\)\")",
+      "Bash(npx vue-tsc *)",
+      "PowerShell(Get-ChildItem -Path \"D:\\\\JRSistemas\\\\Projetos\\\\acompanhar-tarefas\\\\backend\" -Recurse -File | Where-Object {$_.Extension -match '\\\\.\\(ts|js\\)$'} | Select-Object -First 30 | ForEach-Object {$_.FullName})",
+      "Bash(xargs grep -l \"report.daily\\\\|report.monthly\")",
+      "Bash(cd /mnt/d/JRSistemas/Projetos/acompanhar-tarefas/backend && npx prisma migrate dev --name add_webhook_report_granularity 2>&1)"
     ]
   }
 }

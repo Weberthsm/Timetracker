@@ -49,13 +49,41 @@ export class TimeEntriesService {
     await this.checkProjectAccess(dto.projectId, currentUser);
     if (dto.taskId) await this.checkTaskStatus(dto.taskId);
 
-    const start = new Date(dto.startedAt);
-    const end = new Date(dto.endedAt);
-    if (end <= start) throw new UnprocessableEntityException('Hora de fim deve ser posterior ao início');
-
     const dateOnly = new Date(dto.date);
     const today = new Date(); today.setHours(0, 0, 0, 0);
     if (dateOnly > today) throw new UnprocessableEntityException('Não é possível lançar horas em datas futuras');
+
+    // ── Modo só duração ────────────────────────────────────────────────────
+    if (dto.durationOnly) {
+      if (!dto.durationSeconds || dto.durationSeconds < 60) {
+        throw new UnprocessableEntityException('Informe ao menos 1 minuto de duração');
+      }
+      const entry = await this.prisma.timeEntry.create({
+        data: {
+          userId: currentUser.userId,
+          projectId: dto.projectId,
+          taskId: dto.taskId,
+          description: dto.description,
+          date: dateOnly,
+          startedAt: null,
+          endedAt: null,
+          duration: dto.durationSeconds,
+          durationOnly: true,
+        },
+        include: { project: true, task: true, user: { select: { id: true, name: true, email: true } } },
+      });
+      this.eventEmitter.emit('time_entry.created', entry);
+      return entry;
+    }
+
+    // ── Modo com horário (início e fim) ────────────────────────────────────
+    if (!dto.startedAt || !dto.endedAt) {
+      throw new UnprocessableEntityException('Informe o horário de início e fim');
+    }
+
+    const start = new Date(dto.startedAt);
+    const end = new Date(dto.endedAt);
+    if (end <= start) throw new UnprocessableEntityException('Hora de fim deve ser posterior ao início');
 
     const duration = Math.floor((end.getTime() - start.getTime()) / 1000);
 
@@ -69,6 +97,7 @@ export class TimeEntriesService {
         startedAt: start,
         endedAt: end,
         duration,
+        durationOnly: false,
       },
       include: { project: true, task: true, user: { select: { id: true, name: true, email: true } } },
     });
@@ -162,7 +191,7 @@ export class TimeEntriesService {
 
   async startTimer(dto: StartTimerDto, currentUser: JwtPayload) {
     const active = await this.prisma.timeEntry.findFirst({
-      where: { userId: currentUser.userId, endedAt: null },
+      where: { userId: currentUser.userId, endedAt: null, durationOnly: false },
     });
     if (active) throw new UnprocessableEntityException('Você já tem um timer ativo');
 
@@ -179,6 +208,7 @@ export class TimeEntriesService {
         startedAt: now,
         endedAt: null,
         duration: null,
+        durationOnly: false,
         date: new Date(now.toDateString()),
       },
       include: { project: true, task: true },
@@ -200,6 +230,9 @@ export class TimeEntriesService {
     if (entry.endedAt !== null) {
       throw new UnprocessableEntityException('Este lançamento não é um timer ativo');
     }
+    if (!entry.startedAt) {
+      throw new UnprocessableEntityException('Lançamento sem horário de início não pode ser parado como timer');
+    }
 
     const now = new Date();
     const duration = Math.floor((now.getTime() - entry.startedAt.getTime()) / 1000);
@@ -216,7 +249,7 @@ export class TimeEntriesService {
 
   async getActiveTimer(currentUser: JwtPayload) {
     return this.prisma.timeEntry.findFirst({
-      where: { userId: currentUser.userId, endedAt: null },
+      where: { userId: currentUser.userId, endedAt: null, durationOnly: false },
       include: { project: true, task: true },
     });
   }

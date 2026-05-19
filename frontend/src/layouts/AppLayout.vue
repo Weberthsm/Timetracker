@@ -76,17 +76,23 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useSettingsStore } from '@/stores/settings'
 import ActiveTimer from '@/components/timer/ActiveTimer.vue'
 import ToastContainer from '@/components/ui/ToastContainer.vue'
 
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const settingsStore = useSettingsStore()
 const sidebarOpen = ref(false)
 const dropdownOpen = ref(false)
+
+onMounted(() => {
+  settingsStore.load()
+})
 
 const allLinks = [
   { to: '/app/dashboard', label: 'Dashboard', icon: '📊', roles: ['admin', 'manager', 'member'] },

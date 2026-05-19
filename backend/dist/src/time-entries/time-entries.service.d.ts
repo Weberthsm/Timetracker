@@ -44,8 +44,9 @@ export declare class TimeEntriesService {
         userId: string;
         projectId: string;
         taskId: string | null;
-        startedAt: Date;
+        startedAt: Date | null;
         endedAt: Date | null;
+        durationOnly: boolean;
         duration: number | null;
     }>;
     findAll(filters: {
@@ -80,8 +81,9 @@ export declare class TimeEntriesService {
             userId: string;
             projectId: string;
             taskId: string | null;
-            startedAt: Date;
+            startedAt: Date | null;
             endedAt: Date | null;
+            durationOnly: boolean;
             duration: number | null;
         })[];
         meta: {
@@ -102,8 +104,9 @@ export declare class TimeEntriesService {
         userId: string;
         projectId: string;
         taskId: string | null;
-        startedAt: Date;
+        startedAt: Date | null;
         endedAt: Date | null;
+        durationOnly: boolean;
         duration: number | null;
     }>;
     update(id: string, dto: UpdateTimeEntryDto, currentUser: JwtPayload): Promise<{
@@ -115,8 +118,9 @@ export declare class TimeEntriesService {
         userId: string;
         projectId: string;
         taskId: string | null;
-        startedAt: Date;
+        startedAt: Date | null;
         endedAt: Date | null;
+        durationOnly: boolean;
         duration: number | null;
     }>;
     remove(id: string, currentUser: JwtPayload): Promise<void>;
@@ -149,8 +153,9 @@ export declare class TimeEntriesService {
         userId: string;
         projectId: string;
         taskId: string | null;
-        startedAt: Date;
+        startedAt: Date | null;
         endedAt: Date | null;
+        durationOnly: boolean;
         duration: number | null;
     }>;
     stopTimer(id: string, currentUser: JwtPayload): Promise<{
@@ -187,8 +192,9 @@ export declare class TimeEntriesService {
         userId: string;
         projectId: string;
         taskId: string | null;
-        startedAt: Date;
+        startedAt: Date | null;
         endedAt: Date | null;
+        durationOnly: boolean;
         duration: number | null;
     }>;
     getActiveTimer(currentUser: JwtPayload): Promise<({
@@ -220,8 +226,9 @@ export declare class TimeEntriesService {
         userId: string;
         projectId: string;
         taskId: string | null;
-        startedAt: Date;
+        startedAt: Date | null;
         endedAt: Date | null;
+        durationOnly: boolean;
         duration: number | null;
     }) | null>;
 }

@@ -6,12 +6,9 @@ export declare class ProjectsController {
     private projectsService;
     constructor(projectsService: ProjectsService);
     findAll(user: JwtPayload, page?: string, limit?: string, status?: string): Promise<{
-        data: ({
-            _count: {
-                timeEntries: number;
-                tasks: number;
-            };
-        } & {
+        data: {
+            tasksCount: number;
+            timeEntriesCount: number;
             id: string;
             name: string;
             createdAt: Date;
@@ -20,7 +17,7 @@ export declare class ProjectsController {
             color: string | null;
             logoUrl: string | null;
             status: import("@prisma/client").$Enums.ProjectStatus;
-        })[];
+        }[];
         meta: {
             total: number;
             page: number;

@@ -100,20 +100,21 @@ model Task {
 }
 
 model TimeEntry {
-  id          String    @id @default(uuid())
-  userId      String
-  user        User      @relation(fields: [userId], references: [id])
-  projectId   String
-  project     Project   @relation(fields: [projectId], references: [id])
-  taskId      String?
-  task        Task?     @relation(fields: [taskId], references: [id])
-  description String?
-  startedAt   DateTime
-  endedAt     DateTime?
-  duration    Int?
-  date        DateTime  @db.Date
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id           String    @id @default(uuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id])
+  projectId    String
+  project      Project   @relation(fields: [projectId], references: [id])
+  taskId       String?
+  task         Task?     @relation(fields: [taskId], references: [id])
+  description  String?
+  startedAt    DateTime?
+  endedAt      DateTime?
+  duration     Int?
+  durationOnly Boolean   @default(false)
+  date         DateTime  @db.Date
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   @@map("time_entries")
 }
@@ -155,6 +156,9 @@ model RefreshToken {
 model SystemSettings {
   id                       Int      @id @default(1)
   requireEmailVerification Boolean  @default(true)
+  allowTimesMode           Boolean  @default(true)
+  allowStartDurationMode   Boolean  @default(true)
+  allowDurationOnlyMode    Boolean  @default(false)
   updatedAt                DateTime @updatedAt
   updatedBy                String?
 
@@ -162,16 +166,17 @@ model SystemSettings {
 }
 
 model WebhookDestination {
-  id         String            @id @default(uuid())
-  name       String            @db.VarChar(150)
-  url        String
-  secret     String?
-  events     String[]
-  isActive   Boolean           @default(true)
-  createdBy  String
-  createdAt  DateTime          @default(now())
-  updatedAt  DateTime          @updatedAt
-  deliveries WebhookDelivery[]
+  id                String            @id @default(uuid())
+  name              String            @db.VarChar(150)
+  url               String
+  secret            String?
+  events            String[]
+  reportGranularity String?           @default("summary")
+  isActive          Boolean           @default(true)
+  createdBy         String
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  deliveries        WebhookDelivery[]
 
   @@map("webhook_destinations")
 }

@@ -28,10 +28,42 @@
         </button>
       </div>
 
+      <!-- Modos de entrada de horas -->
+      <div class="pt-2 border-t border-gray-100">
+        <p class="text-sm font-medium text-gray-900 mb-0.5">Modos de entrada de horas</p>
+        <p class="text-xs text-gray-500 mb-3">Escolha quais modos ficam disponíveis ao registrar horas</p>
+
+        <div class="space-y-3">
+          <div v-for="mode in ENTRY_MODES" :key="mode.key" class="flex items-start justify-between gap-4">
+            <div>
+              <p class="text-sm font-medium text-gray-800">{{ mode.label }}</p>
+              <p class="text-xs text-gray-500">{{ mode.description }}</p>
+            </div>
+            <button
+              type="button"
+              :class="[
+                'relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2',
+                form[mode.key] ? 'bg-blue-600' : 'bg-gray-200',
+              ]"
+              @click="form[mode.key] = !form[mode.key]"
+            >
+              <span
+                :class="[
+                  'inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform',
+                  form[mode.key] ? 'translate-x-6' : 'translate-x-1',
+                ]"
+              />
+            </button>
+          </div>
+        </div>
+
+        <p v-if="noModeSelected" class="mt-2 text-xs text-red-600">Pelo menos um modo deve estar habilitado.</p>
+      </div>
+
       <p v-if="errorMsg" class="text-sm text-red-600">{{ errorMsg }}</p>
 
       <div class="flex justify-end">
-        <BaseButton type="submit" :loading="saving">Salvar</BaseButton>
+        <BaseButton type="submit" :loading="saving" :disabled="noModeSelected">Salvar</BaseButton>
       </div>
     </form>
 
@@ -77,6 +109,7 @@
             class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
+        <!-- Events -->
         <div>
           <label class="block text-xs font-medium text-gray-700 mb-1">Eventos <span class="text-red-500">*</span></label>
           <div class="grid grid-cols-2 gap-1.5 mt-1">
@@ -98,6 +131,64 @@
             Selecione ao menos um evento.
           </p>
         </div>
+
+        <!-- Report granularity — only when a report event is selected -->
+        <div v-if="hasReportEvent" class="border border-blue-100 bg-blue-50/40 rounded-lg p-3 space-y-3">
+          <div>
+            <p class="text-xs font-semibold text-gray-800 mb-0.5">Formato do relatório</p>
+            <p class="text-xs text-gray-500">Escolha quais dados você quer receber no payload</p>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <label
+              v-for="opt in GRANULARITY_OPTIONS"
+              :key="opt.value"
+              :class="[
+                'flex flex-col gap-0.5 p-2.5 rounded-md border cursor-pointer transition-colors select-none',
+                webhookForm.reportGranularity === opt.value
+                  ? 'border-blue-500 bg-white shadow-sm'
+                  : 'border-gray-200 bg-white hover:border-blue-300',
+              ]"
+            >
+              <input
+                v-model="webhookForm.reportGranularity"
+                type="radio"
+                :value="opt.value"
+                class="sr-only"
+              />
+              <span class="text-xs font-semibold text-gray-800">{{ opt.label }}</span>
+              <span class="text-[11px] text-gray-500 leading-tight">{{ opt.description }}</span>
+            </label>
+          </div>
+
+          <!-- JSON preview toggle -->
+          <div>
+            <button
+              type="button"
+              class="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium transition-colors"
+              @click="showJsonPreview = !showJsonPreview"
+            >
+              <span>{{ showJsonPreview ? '▲' : '▼' }}</span>
+              {{ showJsonPreview ? 'Ocultar' : 'Visualizar' }} exemplo do JSON
+            </button>
+            <div v-if="showJsonPreview" class="mt-2">
+              <!-- event tab selector when both report events are active -->
+              <div v-if="previewEvents.length > 1" class="flex gap-1 mb-2">
+                <button
+                  v-for="ev in previewEvents"
+                  :key="ev"
+                  type="button"
+                  :class="[
+                    'px-2 py-0.5 text-[11px] font-medium rounded-full transition-colors',
+                    previewEvent === ev ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200',
+                  ]"
+                  @click="previewEvent = ev"
+                >{{ ev }}</button>
+              </div>
+              <pre class="bg-gray-900 text-green-300 text-[11px] rounded-md p-3 overflow-x-auto max-h-60 leading-relaxed">{{ jsonPreview }}</pre>
+            </div>
+          </div>
+        </div>
+
         <p v-if="webhookError" class="text-xs text-red-600">{{ webhookError }}</p>
         <div class="flex gap-2 justify-end">
           <BaseButton variant="ghost" size="sm" type="button" @click="cancelWebhookForm">Cancelar</BaseButton>
@@ -129,6 +220,10 @@
                   :key="ev"
                   class="inline-block px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 text-[10px] font-medium"
                 >{{ ev }}</span>
+                <span
+                  v-if="wh.events.some(e => e.startsWith('report.')) && wh.reportGranularity"
+                  class="inline-block px-1.5 py-0.5 rounded bg-purple-50 text-purple-600 text-[10px] font-medium"
+                >{{ granularityLabel(wh.reportGranularity) }}</span>
               </div>
             </div>
 
@@ -208,18 +303,47 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { format, parseISO } from 'date-fns'
-import { settingsService } from '@/services/settings.service'
+import { settingsService, type SystemSettings } from '@/services/settings.service'
 import { webhooksService, type Webhook, type WebhookDelivery } from '@/services/webhooks.service'
+import { useSettingsStore } from '@/stores/settings'
 import { useToast } from '@/composables/useToast'
 import BaseButton from '@/components/ui/BaseButton.vue'
 
 const toast = useToast()
+const settingsStore = useSettingsStore()
 const loading = ref(false)
 const saving = ref(false)
 const errorMsg = ref('')
-const form = ref({ requireEmailVerification: true })
+const form = ref({
+  requireEmailVerification: true,
+  allowTimesMode: true,
+  allowStartDurationMode: true,
+  allowDurationOnlyMode: false,
+})
+
+const ENTRY_MODES: { key: 'allowTimesMode' | 'allowStartDurationMode' | 'allowDurationOnlyMode'; label: string; description: string }[] = [
+  {
+    key: 'allowTimesMode',
+    label: 'Início / Fim',
+    description: 'Informa o horário de início e término do trabalho',
+  },
+  {
+    key: 'allowStartDurationMode',
+    label: 'Início + Duração',
+    description: 'Informa o horário de início e quanto tempo trabalhou',
+  },
+  {
+    key: 'allowDurationOnlyMode',
+    label: 'Apenas Duração',
+    description: 'Informa somente o tempo total trabalhado, sem horário',
+  },
+]
+
+const noModeSelected = computed(() =>
+  !form.value.allowTimesMode && !form.value.allowStartDurationMode && !form.value.allowDurationOnlyMode,
+)
 
 // ── Webhooks ──────────────────────────────────────────────────────────────
 
@@ -233,12 +357,131 @@ const WEBHOOK_EVENTS = [
   { value: 'report.monthly',     label: 'Relatório mensal' },
 ]
 
+const GRANULARITY_OPTIONS = [
+  { value: 'summary', label: 'Resumo geral',  description: 'Total de horas consolidado por projeto' },
+  { value: 'user',    label: 'Por usuário',    description: 'Horas de cada membro separadas por projeto' },
+  { value: 'team',    label: 'Por equipe',     description: 'Horas de cada equipe separadas por projeto' },
+]
+
 const webhooks = ref<Webhook[]>([])
 const showWebhookForm = ref(false)
 const savingWebhook = ref(false)
 const webhookError = ref('')
 const webhookSubmitAttempted = ref(false)
-const webhookForm = ref<{ name: string; url: string; events: string[] }>({ name: '', url: '', events: [] })
+const webhookForm = ref<{ name: string; url: string; events: string[]; reportGranularity: string }>({
+  name: '', url: '', events: [], reportGranularity: 'summary',
+})
+
+// ── Report granularity + JSON preview ────────────────────────────────────
+
+const REPORT_EVENTS = ['report.daily', 'report.monthly']
+
+const hasReportEvent = computed(() =>
+  webhookForm.value.events.some((e) => REPORT_EVENTS.includes(e)),
+)
+
+const previewEvents = computed(() =>
+  webhookForm.value.events.filter((e) => REPORT_EVENTS.includes(e)),
+)
+
+const showJsonPreview = ref(false)
+const previewEvent = ref<string>('report.daily')
+
+// Keep previewEvent in sync when events selection changes
+watch(previewEvents, (evs) => {
+  if (evs.length > 0 && !evs.includes(previewEvent.value)) {
+    previewEvent.value = evs[0]
+  }
+})
+
+function buildJsonPreview(event: string, granularity: string): string {
+  const isDaily = event === 'report.daily'
+  const periodKey = isDaily ? 'date' : 'month'
+  const periodVal = isDaily ? '2026-05-18' : '2026-05'
+  const base = {
+    event,
+    timestamp: '2026-05-18T03:05:00.000Z',
+    granularity,
+    [periodKey]: periodVal,
+  }
+
+  if (granularity === 'summary') {
+    return JSON.stringify(
+      {
+        ...base,
+        totalSeconds: 115200,
+        byProject: [
+          { projectId: 'a3f7c1d2-e845-4b9f-8c30-1d2e3f4a5b6c', projectName: 'Website Institucional', seconds: 64800 },
+          { projectId: 'b9e2f4a1-3c7d-4e8f-9a1b-2c3d4e5f6a7b', projectName: 'App Mobile',             seconds: 50400 },
+        ],
+      },
+      null,
+      2,
+    )
+  }
+
+  if (granularity === 'user') {
+    return JSON.stringify(
+      {
+        ...base,
+        users: [
+          {
+            userId:       'u1a2b3c4-d5e6-7f8a-9b0c-1d2e3f4a5b6c',
+            name:         'João Silva',
+            totalSeconds: 28800,
+            byProject: [
+              { projectId: 'a3f7c1d2-e845-4b9f-8c30-1d2e3f4a5b6c', projectName: 'Website Institucional', seconds: 18000 },
+              { projectId: 'b9e2f4a1-3c7d-4e8f-9a1b-2c3d4e5f6a7b', projectName: 'App Mobile',             seconds: 10800 },
+            ],
+          },
+          {
+            userId:       'u9z8y7x6-w5v4-3u2t-1s0r-9q8p7o6n5m4l',
+            name:         'Maria Santos',
+            totalSeconds: 21600,
+            byProject: [
+              { projectId: 'a3f7c1d2-e845-4b9f-8c30-1d2e3f4a5b6c', projectName: 'Website Institucional', seconds: 14400 },
+              { projectId: 'b9e2f4a1-3c7d-4e8f-9a1b-2c3d4e5f6a7b', projectName: 'App Mobile',             seconds: 7200 },
+            ],
+          },
+        ],
+      },
+      null,
+      2,
+    )
+  }
+
+  // team
+  return JSON.stringify(
+    {
+      ...base,
+      teams: [
+        {
+          teamId:       't1a2b3c4-d5e6-7f8a-9b0c-1d2e3f4a5b6c',
+          teamName:     'Frontend',
+          totalSeconds: 57600,
+          byProject: [
+            { projectId: 'a3f7c1d2-e845-4b9f-8c30-1d2e3f4a5b6c', projectName: 'Website Institucional', seconds: 36000 },
+            { projectId: 'b9e2f4a1-3c7d-4e8f-9a1b-2c3d4e5f6a7b', projectName: 'App Mobile',             seconds: 21600 },
+          ],
+        },
+        {
+          teamId:       't9z8y7x6-w5v4-3u2t-1s0r-9q8p7o6n5m4l',
+          teamName:     'Backend',
+          totalSeconds: 36000,
+          byProject: [
+            { projectId: 'b9e2f4a1-3c7d-4e8f-9a1b-2c3d4e5f6a7b', projectName: 'App Mobile', seconds: 36000 },
+          ],
+        },
+      ],
+    },
+    null,
+    2,
+  )
+}
+
+const jsonPreview = computed(() =>
+  buildJsonPreview(previewEvent.value || 'report.daily', webhookForm.value.reportGranularity),
+)
 
 // Test
 const testingWebhookId = ref<string | null>(null)
@@ -248,22 +491,6 @@ const testResults = ref<Record<string, { success: boolean; statusCode: number | 
 const expandedDeliveries = ref<string | null>(null)
 const deliveries = ref<WebhookDelivery[]>([])
 const loadingDeliveries = ref(false)
-
-// ── Settings save ─────────────────────────────────────────────────────────
-
-async function save() {
-  saving.value = true
-  errorMsg.value = ''
-  try {
-    await settingsService.update(form.value)
-    toast.success('Configurações atualizadas com sucesso')
-  } catch (err: unknown) {
-    const e = err as { response?: { data?: { message?: string } } }
-    errorMsg.value = e.response?.data?.message ?? 'Erro ao salvar.'
-  } finally {
-    saving.value = false
-  }
-}
 
 // ── Webhook CRUD ──────────────────────────────────────────────────────────
 
@@ -286,12 +513,14 @@ async function createWebhook() {
       name: webhookForm.value.name,
       url: webhookForm.value.url,
       events: webhookForm.value.events,
+      ...(hasReportEvent.value ? { reportGranularity: webhookForm.value.reportGranularity } : {}),
     })
     const created = (res.data as { data: Webhook }).data
     webhooks.value.unshift(created)
-    webhookForm.value = { name: '', url: '', events: [] }
+    webhookForm.value = { name: '', url: '', events: [], reportGranularity: 'summary' }
     webhookSubmitAttempted.value = false
     showWebhookForm.value = false
+    showJsonPreview.value = false
     toast.success('Webhook criado com sucesso')
   } catch (err: unknown) {
     const e = err as { response?: { data?: { message?: string } } }
@@ -315,9 +544,10 @@ async function removeWebhook(id: string) {
 
 function cancelWebhookForm() {
   showWebhookForm.value = false
-  webhookForm.value = { name: '', url: '', events: [] }
+  webhookForm.value = { name: '', url: '', events: [], reportGranularity: 'summary' }
   webhookError.value = ''
   webhookSubmitAttempted.value = false
+  showJsonPreview.value = false
 }
 
 // ── Test ──────────────────────────────────────────────────────────────────
@@ -373,6 +603,11 @@ async function loadDeliveries(id: string) {
   }
 }
 
+function granularityLabel(value: string | null | undefined): string {
+  const map: Record<string, string> = { summary: 'Resumo geral', user: 'Por usuário', team: 'Por equipe' }
+  return map[value ?? ''] ?? value ?? ''
+}
+
 function formatDate(iso: string) {
   try {
     return format(parseISO(iso), 'dd/MM/yy HH:mm:ss')
@@ -387,11 +622,32 @@ onMounted(async () => {
   loading.value = true
   try {
     const res = await settingsService.get()
-    const data = (res.data as { data: { requireEmailVerification: boolean } }).data
+    const data = (res.data as { data: SystemSettings }).data
     form.value.requireEmailVerification = data.requireEmailVerification
+    form.value.allowTimesMode           = data.allowTimesMode ?? true
+    form.value.allowStartDurationMode   = data.allowStartDurationMode ?? true
+    form.value.allowDurationOnlyMode    = data.allowDurationOnlyMode ?? false
   } finally {
     loading.value = false
   }
   await loadWebhooks()
 })
+
+// Sync settings store after saving
+async function save() {
+  if (noModeSelected.value) return
+  saving.value = true
+  errorMsg.value = ''
+  try {
+    await settingsService.update(form.value)
+    // Reload store so the form modal picks up the new modes immediately
+    await settingsStore.load()
+    toast.success('Configurações atualizadas com sucesso')
+  } catch (err: unknown) {
+    const e = err as { response?: { data?: { message?: string } } }
+    errorMsg.value = e.response?.data?.message ?? 'Erro ao salvar.'
+  } finally {
+    saving.value = false
+  }
+}
 </script>

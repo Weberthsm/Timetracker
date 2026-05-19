@@ -16,16 +16,13 @@ export declare class TeamsService {
         page?: number;
         limit?: number;
     }): Promise<{
-        data: ({
-            _count: {
-                members: number;
-            };
-        } & {
+        data: {
+            membersCount: number;
             id: string;
             name: string;
             createdAt: Date;
             updatedAt: Date;
-        })[];
+        }[];
         meta: {
             total: number;
             page: number;

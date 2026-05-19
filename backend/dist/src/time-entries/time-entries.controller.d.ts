@@ -35,8 +35,9 @@ export declare class TimeEntriesController {
         userId: string;
         projectId: string;
         taskId: string | null;
-        startedAt: Date;
+        startedAt: Date | null;
         endedAt: Date | null;
+        durationOnly: boolean;
         duration: number | null;
     }) | null>;
     startTimer(dto: StartTimerDto, user: JwtPayload): Promise<{
@@ -68,8 +69,9 @@ export declare class TimeEntriesController {
         userId: string;
         projectId: string;
         taskId: string | null;
-        startedAt: Date;
+        startedAt: Date | null;
         endedAt: Date | null;
+        durationOnly: boolean;
         duration: number | null;
     }>;
     findAll(user: JwtPayload, userId?: string, date?: string, month?: string, projectId?: string, page?: string, limit?: string): Promise<{
@@ -97,8 +99,9 @@ export declare class TimeEntriesController {
             userId: string;
             projectId: string;
             taskId: string | null;
-            startedAt: Date;
+            startedAt: Date | null;
             endedAt: Date | null;
+            durationOnly: boolean;
             duration: number | null;
         })[];
         meta: {
@@ -144,8 +147,9 @@ export declare class TimeEntriesController {
         userId: string;
         projectId: string;
         taskId: string | null;
-        startedAt: Date;
+        startedAt: Date | null;
         endedAt: Date | null;
+        durationOnly: boolean;
         duration: number | null;
     }>;
     findOne(id: string, user: JwtPayload): Promise<{
@@ -157,8 +161,9 @@ export declare class TimeEntriesController {
         userId: string;
         projectId: string;
         taskId: string | null;
-        startedAt: Date;
+        startedAt: Date | null;
         endedAt: Date | null;
+        durationOnly: boolean;
         duration: number | null;
     }>;
     update(id: string, dto: UpdateTimeEntryDto, user: JwtPayload): Promise<{
@@ -170,8 +175,9 @@ export declare class TimeEntriesController {
         userId: string;
         projectId: string;
         taskId: string | null;
-        startedAt: Date;
+        startedAt: Date | null;
         endedAt: Date | null;
+        durationOnly: boolean;
         duration: number | null;
     }>;
     stopTimer(id: string, user: JwtPayload): Promise<{
@@ -208,8 +214,9 @@ export declare class TimeEntriesController {
         userId: string;
         projectId: string;
         taskId: string | null;
-        startedAt: Date;
+        startedAt: Date | null;
         endedAt: Date | null;
+        durationOnly: boolean;
         duration: number | null;
     }>;
     remove(id: string, user: JwtPayload): Promise<void>;

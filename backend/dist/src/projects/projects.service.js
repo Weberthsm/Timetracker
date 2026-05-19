@@ -53,7 +53,8 @@ let ProjectsService = class ProjectsService {
             }),
             this.prisma.project.count({ where: baseWhere }),
         ]);
-        return (0, paginate_1.paginate)(data, total, page, limit);
+        const mapped = data.map(({ _count, ...p }) => ({ ...p, tasksCount: _count.tasks, timeEntriesCount: _count.timeEntries }));
+        return (0, paginate_1.paginate)(mapped, total, page, limit);
     }
     async findOne(id) {
         const project = await this.prisma.project.findUnique({

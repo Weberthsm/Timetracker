@@ -70,8 +70,9 @@
 
         <!-- Bar chart: hours per day -->
         <div class="bg-white rounded-xl border border-gray-200 p-4 mb-6">
-          <h3 class="text-sm font-semibold text-gray-700 mb-4">Horas por dia</h3>
-          <BarChart :labels="barLabels" :datasets="barDatasets" />
+          <h3 class="text-sm font-semibold text-gray-700 mb-1">Horas por dia</h3>
+          <p class="text-xs text-gray-400 mb-4">Clique em uma barra para ver os lançamentos daquele dia</p>
+          <BarChart :labels="barLabels" :datasets="barDatasets" @segment-click="onBarClick" />
         </div>
 
         <!-- Project table -->
@@ -85,7 +86,13 @@
               </tr>
             </thead>
             <tbody class="divide-y divide-gray-50">
-              <tr v-for="p in projectRows" :key="p.projectId">
+              <tr
+                v-for="p in projectRows"
+                :key="p.projectId"
+                class="cursor-pointer hover:bg-gray-50 transition-colors"
+                title="Clique para ver os lançamentos"
+                @click="onProjectRowClick(p)"
+              >
                 <td class="px-4 py-3">
                   <div class="flex items-center gap-2">
                     <div class="w-2.5 h-2.5 rounded-full flex-shrink-0" :style="{ backgroundColor: p.color }" />
@@ -124,7 +131,13 @@
                 </tr>
               </thead>
               <tbody class="divide-y divide-gray-50">
-                <tr v-for="day in daysWithData" :key="day.date">
+                <tr
+                  v-for="day in daysWithData"
+                  :key="day.date"
+                  class="cursor-pointer hover:bg-gray-50 transition-colors"
+                  title="Clique para ver os lançamentos"
+                  @click="openDayDrill(day.date)"
+                >
                   <td class="px-4 py-2 font-medium text-gray-700">{{ formatDay(day.date) }}</td>
                   <td class="px-4 py-2 text-right font-mono text-gray-600">{{ formatDuration(day.totalSeconds) }}</td>
                 </tr>
@@ -134,6 +147,83 @@
         </div>
       </template>
     </template>
+
+    <!-- Day drill-down modal -->
+    <BaseModal :open="dayDrillOpen" :title="dayDrillTitle" size="lg" @close="dayDrillOpen = false">
+      <div v-if="dayDrillLoading" class="text-center py-10 text-sm text-gray-400">
+        Carregando lançamentos...
+      </div>
+      <div v-else-if="!dayDrillEntries.length" class="text-center py-8 text-sm text-gray-400">
+        Nenhum lançamento encontrado
+      </div>
+      <template v-else>
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-gray-100 text-xs text-gray-500">
+              <th class="text-left pb-2 font-medium">Projeto</th>
+              <th class="text-left pb-2 font-medium">Tarefa / Descrição</th>
+              <th class="text-left pb-2 font-medium">Início</th>
+              <th class="text-left pb-2 font-medium">Fim</th>
+              <th class="text-right pb-2 font-medium">Duração</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-50">
+            <tr v-for="e in dayDrillEntries" :key="e.id" class="hover:bg-gray-50">
+              <td class="py-2.5 pr-3">
+                <div class="flex items-center gap-1.5">
+                  <div class="w-2 h-2 rounded-full flex-shrink-0" :style="{ backgroundColor: e.project?.color ?? '#9CA3AF' }" />
+                  <span class="truncate max-w-28 text-gray-700">{{ e.project?.name ?? '—' }}</span>
+                </div>
+              </td>
+              <td class="py-2.5 pr-3 font-medium text-gray-800">{{ e.task?.title ?? e.description ?? '—' }}</td>
+              <td class="py-2.5 pr-3 font-mono text-gray-600">{{ e.startedAt ? formatTime(e.startedAt) : '—' }}</td>
+              <td class="py-2.5 pr-3 font-mono text-gray-600">{{ e.endedAt ? formatTime(e.endedAt) : (e.startedAt ? '...' : '—') }}</td>
+              <td class="py-2.5 text-right font-mono text-gray-700">{{ formatDuration(e.duration ?? 0) }}</td>
+            </tr>
+          </tbody>
+        </table>
+        <p class="text-xs text-gray-400 text-right mt-3 pt-2 border-t border-gray-100">
+          Total: <strong class="text-gray-700">{{ formatDuration(dayDrillEntries.reduce((s, e) => s + (e.duration ?? 0), 0)) }}</strong>
+          · {{ dayDrillEntries.length }} lançamento(s)
+        </p>
+      </template>
+    </BaseModal>
+
+    <!-- Project drill-down modal -->
+    <BaseModal :open="projDrillOpen" :title="projDrillTitle" size="lg" @close="projDrillOpen = false">
+      <div v-if="projDrillLoading" class="text-center py-10 text-sm text-gray-400">
+        Carregando lançamentos...
+      </div>
+      <div v-else-if="!projDrillEntries.length" class="text-center py-8 text-sm text-gray-400">
+        Nenhum lançamento encontrado
+      </div>
+      <template v-else>
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-gray-100 text-xs text-gray-500">
+              <th class="text-left pb-2 font-medium">Data</th>
+              <th class="text-left pb-2 font-medium">Tarefa / Descrição</th>
+              <th class="text-left pb-2 font-medium">Início</th>
+              <th class="text-left pb-2 font-medium">Fim</th>
+              <th class="text-right pb-2 font-medium">Duração</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-50">
+            <tr v-for="e in projDrillEntries" :key="e.id" class="hover:bg-gray-50">
+              <td class="py-2.5 pr-3 text-gray-600">{{ formatDay(e.date.slice(0, 10)) }}</td>
+              <td class="py-2.5 pr-3 font-medium text-gray-800">{{ e.task?.title ?? e.description ?? '—' }}</td>
+              <td class="py-2.5 pr-3 font-mono text-gray-600">{{ e.startedAt ? formatTime(e.startedAt) : '—' }}</td>
+              <td class="py-2.5 pr-3 font-mono text-gray-600">{{ e.endedAt ? formatTime(e.endedAt) : (e.startedAt ? '...' : '—') }}</td>
+              <td class="py-2.5 text-right font-mono text-gray-700">{{ formatDuration(e.duration ?? 0) }}</td>
+            </tr>
+          </tbody>
+        </table>
+        <p class="text-xs text-gray-400 text-right mt-3 pt-2 border-t border-gray-100">
+          Total: <strong class="text-gray-700">{{ formatDuration(projDrillEntries.reduce((s, e) => s + (e.duration ?? 0), 0)) }}</strong>
+          · {{ projDrillEntries.length }} lançamento(s)
+        </p>
+      </template>
+    </BaseModal>
   </div>
 </template>
 
@@ -142,9 +232,12 @@ import { ref, computed, watch, onMounted } from 'vue'
 import { format, addMonths, parseISO, getDaysInMonth } from 'date-fns'
 import { useRoute, useRouter } from 'vue-router'
 import { reportsService } from '@/services/reports.service'
+import { timeEntriesService } from '@/services/time-entries.service'
+import type { TimeEntry } from '@/services/time-entries.service'
 import { usersService, type UserOption } from '@/services/users.service'
 import { useAuthStore } from '@/stores/auth'
 import BarChart from '@/components/charts/BarChart.vue'
+import BaseModal from '@/components/ui/BaseModal.vue'
 
 interface ByProjectItem {
   projectId: string
@@ -165,6 +258,20 @@ interface MonthlyReport {
   totalFormatted: string
   byProject: ByProjectItem[]
   byDay: DayEntry[]
+}
+
+// Entry type for drill-down fetched data
+interface DrillEntry {
+  id: string
+  projectId: string
+  project?: { id: string; name: string; color: string | null }
+  task?: { id: string; title: string } | null
+  description?: string | null
+  startedAt: string | null
+  endedAt?: string | null
+  duration?: number | null
+  durationOnly?: boolean
+  date: string
 }
 
 const route = useRoute()
@@ -239,6 +346,79 @@ const barDatasets = computed(() => {
   }
   return [{ label: 'Horas', data, backgroundColor: '#3B82F6' }]
 })
+
+// ── Day drill-down ────────────────────────────────────────────────────────────
+
+const dayDrillOpen = ref(false)
+const dayDrillTitle = ref('')
+const dayDrillLoading = ref(false)
+const dayDrillEntries = ref<DrillEntry[]>([])
+
+async function openDayDrill(date: string) {
+  const dateKey = date.slice(0, 10) // ensure YYYY-MM-DD
+  dayDrillTitle.value = `Lançamentos de ${format(parseISO(dateKey), 'dd/MM/yyyy')}`
+  dayDrillEntries.value = []
+  dayDrillLoading.value = true
+  dayDrillOpen.value = true
+  try {
+    const res = await reportsService.daily({ date: dateKey, userId: targetUserId.value })
+    const data = (res.data as { data: { entries: DrillEntry[] } }).data
+    dayDrillEntries.value = (data.entries ?? []).sort((a, b) => {
+      if (!a.startedAt) return 1
+      if (!b.startedAt) return -1
+      return new Date(a.startedAt).getTime() - new Date(b.startedAt).getTime()
+    })
+  } catch {
+    // non-critical
+  } finally {
+    dayDrillLoading.value = false
+  }
+}
+
+async function onBarClick(index: number) {
+  // index 0 = day 1, index 1 = day 2, etc.
+  const dayTotal = barDatasets.value[0]?.data[index] ?? 0
+  if (dayTotal === 0) return // no data for this day — ignore click
+  const dayNum = String(index + 1).padStart(2, '0')
+  const date = `${selectedMonth.value}-${dayNum}`
+  await openDayDrill(date)
+}
+
+// ── Project drill-down ────────────────────────────────────────────────────────
+
+const projDrillOpen = ref(false)
+const projDrillTitle = ref('')
+const projDrillLoading = ref(false)
+const projDrillEntries = ref<TimeEntry[]>([])
+
+async function onProjectRowClick(row: { projectId: string; name: string }) {
+  projDrillTitle.value = row.name
+  projDrillEntries.value = []
+  projDrillLoading.value = true
+  projDrillOpen.value = true
+  try {
+    const params: Record<string, string> = {
+      month: selectedMonth.value,
+      projectId: row.projectId,
+      limit: '200',
+    }
+    if (targetUserId.value) params.userId = targetUserId.value
+    const res = await timeEntriesService.list(params)
+    const body = (res.data as { data: { data: TimeEntry[] } }).data
+    projDrillEntries.value = body.data
+  } catch {
+    // non-critical
+  } finally {
+    projDrillLoading.value = false
+  }
+}
+
+// ── Shared helpers ────────────────────────────────────────────────────────────
+
+function formatTime(iso: string | null) {
+  if (!iso) return '—'
+  return format(new Date(iso), 'HH:mm')
+}
 
 function formatDuration(secs: number) {
   const h = Math.floor(secs / 3600)

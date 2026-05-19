@@ -70,12 +70,17 @@
         <!-- Chart + legend -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
           <div data-testid="daily-chart" class="bg-white rounded-xl border border-gray-200 p-4 flex items-center justify-center">
-            <DoughnutChart :items="chartItems" />
+            <DoughnutChart :items="chartItems" @segment-click="onChartClick" />
           </div>
           <div class="bg-white rounded-xl border border-gray-200 p-4">
             <h3 class="text-sm font-semibold text-gray-700 mb-3">Por projeto</h3>
             <div class="space-y-2">
-              <div v-for="item in byProject" :key="item.projectId" class="flex items-center gap-2">
+              <div
+                v-for="item in byProject"
+                :key="item.projectId"
+                class="flex items-center gap-2 cursor-pointer hover:bg-gray-50 rounded px-1 -mx-1 py-0.5 transition-colors"
+                @click="openProjectDrill(item)"
+              >
                 <div class="w-3 h-3 rounded-full flex-shrink-0" :style="{ backgroundColor: item.color }" />
                 <span class="flex-1 text-sm text-gray-700 truncate">{{ item.name }}</span>
                 <span class="text-xs text-gray-500">{{ formatDuration(item.seconds) }}</span>
@@ -108,8 +113,8 @@
                 </td>
                 <td class="px-4 py-3 text-gray-600 truncate max-w-32">{{ e.task?.title ?? '—' }}</td>
                 <td class="px-4 py-3 text-gray-500 truncate max-w-40">{{ e.description ?? '—' }}</td>
-                <td class="px-4 py-3 text-gray-600 font-mono">{{ formatTime(e.startedAt) }}</td>
-                <td class="px-4 py-3 text-gray-600 font-mono">{{ e.endedAt ? formatTime(e.endedAt) : '...' }}</td>
+                <td class="px-4 py-3 text-gray-600 font-mono">{{ e.startedAt ? formatTime(e.startedAt) : '—' }}</td>
+                <td class="px-4 py-3 text-gray-600 font-mono">{{ e.endedAt ? formatTime(e.endedAt) : (e.startedAt ? '...' : '—') }}</td>
                 <td class="px-4 py-3 text-right font-mono text-gray-700">{{ formatDuration(e.duration ?? 0) }}</td>
               </tr>
             </tbody>
@@ -117,6 +122,37 @@
         </div>
       </template>
     </template>
+
+    <!-- Drill-down modal: entries for a clicked project -->
+    <BaseModal :open="drillOpen" :title="drillTitle" size="lg" @close="drillOpen = false">
+      <div v-if="!drillEntries.length" class="text-center py-8 text-sm text-gray-400">
+        Nenhum lançamento encontrado
+      </div>
+      <template v-else>
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-gray-100 text-xs text-gray-500">
+              <th class="text-left pb-2 font-medium">Tarefa / Descrição</th>
+              <th class="text-left pb-2 font-medium">Início</th>
+              <th class="text-left pb-2 font-medium">Fim</th>
+              <th class="text-right pb-2 font-medium">Duração</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-50">
+            <tr v-for="e in drillEntries" :key="e.id" class="hover:bg-gray-50">
+              <td class="py-2.5 pr-4 font-medium text-gray-800">{{ e.task?.title ?? e.description ?? '—' }}</td>
+              <td class="py-2.5 pr-4 font-mono text-gray-600">{{ e.startedAt ? formatTime(e.startedAt) : '—' }}</td>
+              <td class="py-2.5 pr-4 font-mono text-gray-600">{{ e.endedAt ? formatTime(e.endedAt) : (e.startedAt ? '...' : '—') }}</td>
+              <td class="py-2.5 text-right font-mono text-gray-700">{{ formatDuration(e.duration ?? 0) }}</td>
+            </tr>
+          </tbody>
+        </table>
+        <p class="text-xs text-gray-400 text-right mt-3 pt-2 border-t border-gray-100">
+          Total: <strong class="text-gray-700">{{ formatDuration(drillEntries.reduce((s, e) => s + (e.duration ?? 0), 0)) }}</strong>
+          · {{ drillEntries.length }} lançamento(s)
+        </p>
+      </template>
+    </BaseModal>
   </div>
 </template>
 
@@ -127,6 +163,7 @@ import { reportsService } from '@/services/reports.service'
 import { usersService, type UserOption } from '@/services/users.service'
 import { useAuthStore } from '@/stores/auth'
 import DoughnutChart from '@/components/charts/DoughnutChart.vue'
+import BaseModal from '@/components/ui/BaseModal.vue'
 
 interface Project { id: string; name: string; color: string }
 interface Task { id: string; title: string }
@@ -136,9 +173,10 @@ interface Entry {
   project?: Project
   task?: Task
   description?: string | null
-  startedAt: string
+  startedAt: string | null
   endedAt?: string | null
   duration?: number | null
+  durationOnly?: boolean
 }
 
 const authStore = useAuthStore()
@@ -188,13 +226,37 @@ const chartItems = computed(() =>
   byProject.value.map((p) => ({ label: p.name, percentage: p.percent, duration: p.seconds })),
 )
 
+// ── Drill-down ──────────────────────────────────────────────────────────────
+
+const drillOpen = ref(false)
+const drillTitle = ref('')
+const drillEntries = ref<Entry[]>([])
+
+function openProjectDrill(project: { projectId: string; name: string }) {
+  drillTitle.value = project.name
+  drillEntries.value = entries.value.filter((e) => e.projectId === project.projectId)
+  drillOpen.value = true
+}
+
+function onChartClick(index: number) {
+  const project = byProject.value[index]
+  if (!project) return
+  openProjectDrill(project)
+}
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
 function shiftDay(delta: number) {
   const next = format(addDays(new Date(selectedDate.value + 'T00:00:00'), delta), 'yyyy-MM-dd')
   if (next > today) return
   selectedDate.value = next
 }
 
-function formatTime(iso: string) { return format(new Date(iso), 'HH:mm') }
+function formatTime(iso: string | null) {
+  if (!iso) return '—'
+  return format(new Date(iso), 'HH:mm')
+}
+
 function formatDuration(secs: number) {
   const h = Math.floor(secs / 3600)
   const m = Math.floor((secs % 3600) / 60)
@@ -207,9 +269,11 @@ async function loadReport() {
   try {
     const res = await reportsService.daily({ date: selectedDate.value, userId: targetUserId.value })
     const data = (res.data as { data: { entries: Entry[] } }).data
-    entries.value = (data.entries ?? []).sort(
-      (a, b) => new Date(a.startedAt).getTime() - new Date(b.startedAt).getTime(),
-    )
+    entries.value = (data.entries ?? []).sort((a, b) => {
+      if (!a.startedAt) return 1
+      if (!b.startedAt) return -1
+      return new Date(a.startedAt).getTime() - new Date(b.startedAt).getTime()
+    })
   } finally {
     loading.value = false
   }

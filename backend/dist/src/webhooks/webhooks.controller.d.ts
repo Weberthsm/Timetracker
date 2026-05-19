@@ -6,44 +6,44 @@ export declare class WebhooksController {
     private webhooksService;
     constructor(webhooksService: WebhooksService);
     create(dto: CreateWebhookDto, user: JwtPayload): Promise<{
+        url: string;
         id: string;
         name: string;
         createdAt: Date;
         updatedAt: Date;
-        url: string;
         secret: string | null;
         events: string[];
         isActive: boolean;
         createdBy: string;
     }>;
     findAll(user: JwtPayload): Promise<{
+        url: string;
         id: string;
         name: string;
         createdAt: Date;
         updatedAt: Date;
-        url: string;
         secret: string | null;
         events: string[];
         isActive: boolean;
         createdBy: string;
     }[]>;
     findOne(id: string, user: JwtPayload): Promise<{
+        url: string;
         id: string;
         name: string;
         createdAt: Date;
         updatedAt: Date;
-        url: string;
         secret: string | null;
         events: string[];
         isActive: boolean;
         createdBy: string;
     }>;
     update(id: string, dto: UpdateWebhookDto, user: JwtPayload): Promise<{
+        url: string;
         id: string;
         name: string;
         createdAt: Date;
         updatedAt: Date;
-        url: string;
         secret: string | null;
         events: string[];
         isActive: boolean;

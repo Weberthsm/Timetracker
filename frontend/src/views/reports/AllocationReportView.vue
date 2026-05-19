@@ -140,10 +140,12 @@
 
         <!-- Expanded project rows -->
         <div v-if="expanded.has(row.id)" class="border-t border-gray-100 divide-y divide-gray-50">
-          <div
+          <button
             v-for="p in row.byProject"
             :key="p.projectId"
-            class="flex items-center gap-3 px-4 py-2.5 bg-gray-50"
+            class="w-full flex items-center gap-3 px-4 py-2.5 bg-gray-50 hover:bg-gray-100 transition-colors text-left cursor-pointer"
+            title="Clique para ver detalhes"
+            @click.stop="onProjectSliceClick(row, p)"
           >
             <!-- Color dot -->
             <div
@@ -163,7 +165,7 @@
             <span class="font-mono text-sm text-gray-600 flex-shrink-0 w-20 text-right">{{ p.totalFormatted }}</span>
             <!-- Percentage -->
             <span class="text-xs text-gray-500 flex-shrink-0 w-12 text-right font-medium">{{ p.percentage }}%</span>
-          </div>
+          </button>
           <!-- No projects -->
           <div v-if="!row.byProject.length" class="px-12 py-2.5 text-xs text-gray-400 bg-gray-50">
             Nenhum lançamento neste período
@@ -171,13 +173,96 @@
         </div>
       </div>
     </div>
+
+    <!-- ── Drill-down modal ────────────────────────────────────────────────── -->
+    <BaseModal :open="drillOpen" :title="drillTitle" size="lg" @close="drillOpen = false">
+      <template v-if="drillItem">
+        <!-- Cabeçalho: colaborador / equipe + período -->
+        <div class="flex items-center gap-3 pb-3 mb-3 border-b border-gray-100">
+          <div
+            class="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0"
+            :style="{ backgroundColor: resolveColor(drillItem.projectId, drillItem.projectColor) }"
+          >{{ drillItem.entityLabel.charAt(0).toUpperCase() }}</div>
+          <div>
+            <p class="text-sm font-semibold text-gray-900">{{ drillItem.entityLabel }}</p>
+            <p class="text-xs text-gray-500">{{ periodLabel }} · {{ drillItem.totalFormatted }} ({{ drillItem.percentage }}%)</p>
+          </div>
+        </div>
+
+        <!-- Carregando -->
+        <div v-if="drillLoading" class="text-center py-10 text-sm text-gray-400">
+          Carregando lançamentos...
+        </div>
+
+        <!-- Tabela de lançamentos (membro + dia/mês) -->
+        <template v-else-if="drillEntries.length">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="border-b border-gray-100 text-xs text-gray-500">
+                <th v-if="granularity !== 'day'" class="text-left pb-2 font-medium">Data</th>
+                <th class="text-left pb-2 font-medium">Tarefa / Descrição</th>
+                <th class="text-left pb-2 font-medium">Início</th>
+                <th class="text-left pb-2 font-medium">Fim</th>
+                <th class="text-right pb-2 font-medium">Duração</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-50">
+              <tr v-for="e in drillEntries" :key="e.id" class="hover:bg-gray-50">
+                <td v-if="granularity !== 'day'" class="py-2.5 pr-3 text-gray-600 whitespace-nowrap">
+                  {{ formatDay(e.date) }}
+                </td>
+                <td class="py-2.5 pr-3 font-medium text-gray-800">{{ e.task?.title ?? e.description ?? '—' }}</td>
+                <td class="py-2.5 pr-3 font-mono text-gray-600">{{ formatTime(e.startedAt) }}</td>
+                <td class="py-2.5 pr-3 font-mono text-gray-600">
+                  {{ e.endedAt ? formatTime(e.endedAt) : (e.startedAt ? '...' : '—') }}
+                </td>
+                <td class="py-2.5 text-right font-mono text-gray-700">{{ formatDuration(e.duration ?? 0) }}</td>
+              </tr>
+            </tbody>
+          </table>
+          <p class="text-xs text-gray-400 text-right mt-3 pt-2 border-t border-gray-100">
+            Total: <strong class="text-gray-700">{{ formatDuration(drillEntries.reduce((s, e) => s + (e.duration ?? 0), 0)) }}</strong>
+            · {{ drillEntries.length }} lançamento(s)
+          </p>
+        </template>
+
+        <!-- Fallback: equipe ou granularidade anual — mostrar resumo agregado -->
+        <template v-else>
+          <div class="space-y-3">
+            <div class="flex items-center justify-between py-2 border-b border-gray-100">
+              <span class="text-sm text-gray-600">Total no período</span>
+              <span class="font-mono font-semibold text-gray-900">{{ drillItem.totalFormatted }}</span>
+            </div>
+            <div class="flex items-center justify-between py-2 border-b border-gray-100">
+              <span class="text-sm text-gray-600">Participação</span>
+              <span class="font-semibold text-gray-900">{{ drillItem.percentage }}%</span>
+            </div>
+            <div class="w-full bg-gray-100 rounded-full h-2.5 mt-1">
+              <div
+                class="h-2.5 rounded-full transition-all"
+                :style="{
+                  width: `${drillItem.percentage}%`,
+                  backgroundColor: resolveColor(drillItem.projectId, drillItem.projectColor),
+                }"
+              />
+            </div>
+            <p v-if="granularity === 'year'" class="text-xs text-gray-400 text-center pt-1">
+              Lançamentos individuais disponíveis nas visualizações por Dia ou Mês
+            </p>
+          </div>
+        </template>
+      </template>
+    </BaseModal>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
-import { format, addDays, addMonths } from 'date-fns'
+import { format, addDays, addMonths, parseISO } from 'date-fns'
 import { reportsService } from '@/services/reports.service'
+import { timeEntriesService } from '@/services/time-entries.service'
+import type { TimeEntry } from '@/services/time-entries.service'
+import BaseModal from '@/components/ui/BaseModal.vue'
 
 // ── Types ─────────────────────────────────────────────────────────────────
 
@@ -318,6 +403,83 @@ function resolveColor(projectId: string, backendColor: string | null): string {
   if (backendColor) return backendColor
   const idx = colorIndex.value.get(projectId) ?? 0
   return PROJECT_COLORS[idx % PROJECT_COLORS.length]
+}
+
+// ── Drill-down ─────────────────────────────────────────────────────────────
+
+interface DrillItem {
+  entityLabel: string
+  userId: string | null   // null for teams tab
+  projectId: string
+  projectName: string
+  projectColor: string | null
+  totalFormatted: string
+  percentage: number
+}
+
+const drillOpen = ref(false)
+const drillTitle = ref('')
+const drillItem = ref<DrillItem | null>(null)
+const drillLoading = ref(false)
+const drillEntries = ref<TimeEntry[]>([])
+
+// Whether we can fetch individual entries: member tab + day or month granularity
+const canFetchEntries = computed(
+  () => activeTab.value === 'members' && granularity.value !== 'year',
+)
+
+async function onProjectSliceClick(row: DisplayRow, p: ProjectSlice) {
+  drillTitle.value = `${p.projectName} — ${row.label}`
+
+  // userId is row.id when in members tab, null for teams
+  const userId = activeTab.value === 'members' ? row.id : null
+  drillItem.value = {
+    entityLabel: row.label,
+    userId,
+    projectId: p.projectId,
+    projectName: p.projectName,
+    projectColor: p.color,
+    totalFormatted: p.totalFormatted,
+    percentage: p.percentage,
+  }
+  drillEntries.value = []
+  drillOpen.value = true
+
+  if (!canFetchEntries.value || !userId) return
+
+  drillLoading.value = true
+  try {
+    const params: Record<string, string> = {
+      projectId: p.projectId,
+      userId,
+      limit: '200',
+    }
+    if (granularity.value === 'day') params.date = dayValue.value
+    else params.month = monthValue.value
+
+    const res = await timeEntriesService.list(params)
+    const body = (res.data as { data: { data: TimeEntry[] } }).data
+    drillEntries.value = body.data
+  } catch {
+    // non-critical — fallback to summary
+  } finally {
+    drillLoading.value = false
+  }
+}
+
+function formatTime(iso: string | null) {
+  if (!iso) return '—'
+  return format(new Date(iso), 'HH:mm')
+}
+
+function formatDuration(secs: number) {
+  const h = Math.floor(secs / 3600)
+  const m = Math.floor((secs % 3600) / 60)
+  return h > 0 ? `${h}h ${m}m` : `${m}m`
+}
+
+function formatDay(iso: string) {
+  return format(parseISO(iso.slice(0, 10)), 'dd/MM')
 }
 
 // ── Data ───────────────────────────────────────────────────────────────────

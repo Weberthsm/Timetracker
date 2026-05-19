@@ -8,6 +8,10 @@ export default defineConfig({
   resolve: {
     alias: { '@': resolve(__dirname, 'src') },
   },
+  server: {
+    host: true,   // escuta em 0.0.0.0 (acessível na rede local)
+    port: 5173,
+  },
   test: {
     globals: true,
     environment: 'jsdom',

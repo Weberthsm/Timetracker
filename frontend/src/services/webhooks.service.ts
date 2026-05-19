@@ -6,6 +6,7 @@ export interface Webhook {
   url: string
   secret: string | null
   events: string[]
+  reportGranularity: string | null
   isActive: boolean
   createdAt: string
 }
@@ -23,7 +24,7 @@ export interface WebhookDelivery {
 
 export const webhooksService = {
   list: () => api.get('/webhooks'),
-  create: (data: { name: string; url: string; events: string[] }) => api.post('/webhooks', data),
+  create: (data: { name: string; url: string; events: string[]; reportGranularity?: string }) => api.post('/webhooks', data),
   update: (id: string, data: Partial<{ name: string; url: string; isActive: boolean }>) =>
     api.patch(`/webhooks/${id}`, data),
   remove: (id: string) => api.delete(`/webhooks/${id}`),

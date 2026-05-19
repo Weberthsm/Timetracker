@@ -59,7 +59,8 @@ export class ProjectsService {
       this.prisma.project.count({ where: baseWhere }),
     ]);
 
-    return paginate(data, total, page, limit);
+    const mapped = data.map(({ _count, ...p }) => ({ ...p, tasksCount: _count.tasks, timeEntriesCount: _count.timeEntries }));
+    return paginate(mapped, total, page, limit);
   }
 
   async findOne(id: string) {

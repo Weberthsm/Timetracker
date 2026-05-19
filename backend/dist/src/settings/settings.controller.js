@@ -23,9 +23,7 @@ let SettingsController = class SettingsController {
     constructor(settingsService) {
         this.settingsService = settingsService;
     }
-    getSettings(user) {
-        if (user.role !== 'admin')
-            throw new common_1.ForbiddenException('Apenas administradores podem acessar configurações');
+    getSettings() {
         return this.settingsService.getSettings();
     }
     updateSettings(dto, user) {
@@ -35,10 +33,9 @@ let SettingsController = class SettingsController {
 exports.SettingsController = SettingsController;
 __decorate([
     (0, common_1.Get)(),
-    (0, swagger_1.ApiOperation)({ summary: 'Obter configurações do sistema (admin)' }),
-    __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    (0, swagger_1.ApiOperation)({ summary: 'Obter configurações do sistema (todos os usuários autenticados)' }),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
+    __metadata("design:paramtypes", []),
     __metadata("design:returntype", void 0)
 ], SettingsController.prototype, "getSettings", null);
 __decorate([

@@ -12,6 +12,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.CreateWebhookDto = void 0;
 const class_validator_1 = require("class-validator");
 const swagger_1 = require("@nestjs/swagger");
+const VALID_GRANULARITIES = ['summary', 'user', 'team'];
 const VALID_EVENTS = [
     'time_entry.created',
     'time_entry.updated',
@@ -27,6 +28,7 @@ class CreateWebhookDto {
     secret;
     events;
     isActive;
+    reportGranularity;
 }
 exports.CreateWebhookDto = CreateWebhookDto;
 __decorate([
@@ -60,4 +62,14 @@ __decorate([
     (0, class_validator_1.IsBoolean)(),
     __metadata("design:type", Boolean)
 ], CreateWebhookDto.prototype, "isActive", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        enum: VALID_GRANULARITIES,
+        default: 'summary',
+        description: 'Granularity for report events (report.daily / report.monthly)',
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsIn)(VALID_GRANULARITIES),
+    __metadata("design:type", String)
+], CreateWebhookDto.prototype, "reportGranularity", void 0);
 //# sourceMappingURL=create-webhook.dto.js.map

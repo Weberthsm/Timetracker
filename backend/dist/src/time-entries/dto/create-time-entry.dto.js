@@ -19,6 +19,8 @@ class CreateTimeEntryDto {
     date;
     startedAt;
     endedAt;
+    durationOnly;
+    durationSeconds;
 }
 exports.CreateTimeEntryDto = CreateTimeEntryDto;
 __decorate([
@@ -44,13 +46,28 @@ __decorate([
     __metadata("design:type", String)
 ], CreateTimeEntryDto.prototype, "date", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: '2026-05-14T09:00:00Z' }),
+    (0, swagger_1.ApiPropertyOptional)({ example: '2026-05-14T09:00:00Z' }),
+    (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsISO8601)(),
     __metadata("design:type", String)
 ], CreateTimeEntryDto.prototype, "startedAt", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: '2026-05-14T11:00:00Z' }),
+    (0, swagger_1.ApiPropertyOptional)({ example: '2026-05-14T11:00:00Z' }),
+    (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsISO8601)(),
     __metadata("design:type", String)
 ], CreateTimeEntryDto.prototype, "endedAt", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ description: 'true quando o lançamento é feito apenas com duração, sem horário' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
+], CreateTimeEntryDto.prototype, "durationOnly", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ description: 'Duração em segundos (obrigatório quando durationOnly = true)', minimum: 60 }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsInt)(),
+    (0, class_validator_1.Min)(60),
+    __metadata("design:type", Number)
+], CreateTimeEntryDto.prototype, "durationSeconds", void 0);
 //# sourceMappingURL=create-time-entry.dto.js.map

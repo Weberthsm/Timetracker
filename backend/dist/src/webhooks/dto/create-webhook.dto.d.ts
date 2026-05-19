@@ -4,4 +4,5 @@ export declare class CreateWebhookDto {
     secret?: string;
     events: string[];
     isActive?: boolean;
+    reportGranularity?: string;
 }

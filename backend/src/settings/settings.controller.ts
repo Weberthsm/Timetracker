@@ -1,4 +1,4 @@
-import { Controller, Get, Patch, Body, ForbiddenException } from '@nestjs/common';
+import { Controller, Get, Patch, Body } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { SettingsService } from './settings.service';
 import { UpdateSettingsDto } from './dto/update-settings.dto';
@@ -12,9 +12,8 @@ export class SettingsController {
   constructor(private settingsService: SettingsService) {}
 
   @Get()
-  @ApiOperation({ summary: 'Obter configurações do sistema (admin)' })
-  getSettings(@CurrentUser() user: JwtPayload) {
-    if (user.role !== 'admin') throw new ForbiddenException('Apenas administradores podem acessar configurações');
+  @ApiOperation({ summary: 'Obter configurações do sistema (todos os usuários autenticados)' })
+  getSettings() {
     return this.settingsService.getSettings();
   }
 

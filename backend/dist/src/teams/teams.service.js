@@ -42,7 +42,8 @@ let TeamsService = class TeamsService {
             }),
             this.prisma.team.count(),
         ]);
-        return (0, paginate_1.paginate)(data, total, page, limit);
+        const mapped = data.map(({ _count, ...t }) => ({ ...t, membersCount: _count.members }));
+        return (0, paginate_1.paginate)(mapped, total, page, limit);
     }
     async findOne(id) {
         const team = await this.prisma.team.findUnique({

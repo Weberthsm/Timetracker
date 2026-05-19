@@ -7,16 +7,13 @@ export declare class TeamsController {
     private teamsService;
     constructor(teamsService: TeamsService);
     findAll(page?: string, limit?: string): Promise<{
-        data: ({
-            _count: {
-                members: number;
-            };
-        } & {
+        data: {
+            membersCount: number;
             id: string;
             name: string;
             createdAt: Date;
             updatedAt: Date;
-        })[];
+        }[];
         meta: {
             total: number;
             page: number;

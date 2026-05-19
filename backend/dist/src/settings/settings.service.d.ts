@@ -8,12 +8,18 @@ export declare class SettingsService {
         id: number;
         updatedAt: Date;
         requireEmailVerification: boolean;
+        allowTimesMode: boolean;
+        allowStartDurationMode: boolean;
+        allowDurationOnlyMode: boolean;
         updatedBy: string | null;
     }>;
     updateSettings(dto: UpdateSettingsDto, currentUser: JwtPayload): Promise<{
         id: number;
         updatedAt: Date;
         requireEmailVerification: boolean;
+        allowTimesMode: boolean;
+        allowStartDurationMode: boolean;
+        allowDurationOnlyMode: boolean;
         updatedBy: string | null;
     }>;
 }

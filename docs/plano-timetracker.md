@@ -21,7 +21,7 @@ A escolha garante tipagem estática de ponta a ponta: os tipos gerados pelo Pris
 | Node.js | 20 LTS | Runtime |
 | TypeScript | 5.x | Linguagem |
 | NestJS | 10.x | Framework HTTP |
-| Prisma | 5.x | ORM + migrations |
+| Prisma | 7.x | ORM + migrations |
 | PostgreSQL | 16 | Banco de dados |
 | Passport + JWT | — | Autenticação |
 | Nodemailer | — | Envio de e-mail |
@@ -195,20 +195,21 @@ enum TaskStatus {
 ### time_entries
 ```prisma
 model TimeEntry {
-  id          String    @id @default(uuid())
-  userId      String
-  user        User      @relation(fields: [userId], references: [id])
-  projectId   String
-  project     Project   @relation(fields: [projectId], references: [id])
-  taskId      String?
-  task        Task?     @relation(fields: [taskId], references: [id])
-  description String?
-  startedAt   DateTime
-  endedAt     DateTime?                -- null = timer ainda ativo
-  duration    Int?                     -- duração em segundos (calculada ao parar)
-  date        DateTime  @db.Date       -- data de competência (informada pelo usuário; pode ser retroativa)
-  createdAt   DateTime  @default(now()) -- data/hora de criação no sistema (gerada pelo servidor, imutável)
-  updatedAt   DateTime  @updatedAt
+  id           String    @id @default(uuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id])
+  projectId    String
+  project      Project   @relation(fields: [projectId], references: [id])
+  taskId       String?
+  task         Task?     @relation(fields: [taskId], references: [id])
+  description  String?
+  startedAt    DateTime?              -- null quando durationOnly = true ou timer não iniciado
+  endedAt      DateTime?              -- null = timer ainda ativo
+  duration     Int?                   -- duração em segundos (calculada ao parar ou informada diretamente)
+  durationOnly Boolean   @default(false) -- true = lançamento sem horário (apenas duração informada)
+  date         DateTime  @db.Date    -- data de competência (informada pelo usuário; pode ser retroativa)
+  createdAt    DateTime  @default(now()) -- data/hora de criação no sistema (gerada pelo servidor, imutável)
+  updatedAt    DateTime  @updatedAt
 }
 ```
 
@@ -244,6 +245,9 @@ model PasswordResetToken {
 model SystemSettings {
   id                       Int      @id @default(1)
   requireEmailVerification Boolean  @default(true)
+  allowTimesMode           Boolean  @default(true)   -- habilita modo Início/Fim no formulário de lançamento
+  allowStartDurationMode   Boolean  @default(true)   -- habilita modo Início + Duração
+  allowDurationOnlyMode    Boolean  @default(false)  -- habilita modo Apenas Duração (sem horário)
   updatedAt                DateTime @updatedAt
   updatedBy                String?  -- userId do admin que fez a última alteração
 }
@@ -539,35 +543,48 @@ Scenario: Parar timer
 
 **US-09 — Registro manual de atividade**
 Como membro de equipe
-Quero registrar manualmente uma atividade informando data, início e fim
+Quero registrar manualmente uma atividade escolhendo como quero informar o tempo
 Para lançar horas de atividades passadas ou quando não usei o timer
 
 Regras de negócio:
-- Campos obrigatórios: projeto, data, hora início, hora fim
-- Fim deve ser posterior ao início (HTTP 422 se não)
-- Duração calculada automaticamente pelo backend
+- Campo sempre obrigatório: projeto e data
+- Três modos de entrada, habilitados individualmente pelo admin (US-22):
+  - **Início / Fim**: informar hora de início e hora de fim (modo padrão)
+  - **Início + Duração**: informar hora de início e duração em horas/minutos (fim calculado automaticamente)
+  - **Apenas Duração**: informar somente o tempo total sem nenhum horário (`durationOnly = true`)
+- Quando apenas um modo está ativo, toggle não exibido — formulário direto
+- Fim deve ser posterior ao início (HTTP 422 se não); regra não se aplica ao modo Apenas Duração
+- Duração mínima: 60 segundos em qualquer modo
 - `date` = data informada pelo usuário (pode ser retroativa); `createdAt` = gerado pelo servidor
 - Datas futuras bloqueadas no frontend
 - Data anterior a hoje: aviso visual não bloqueante no frontend
 
 Critérios de aceite:
 ```gherkin
-Scenario: Registro manual com sucesso
+Scenario: Registro modo Início/Fim com sucesso
   When informo projeto, data de hoje, início 14:00 e fim 16:00
-  Then TimeEntry criado com duração 7200 segundos
+  Then TimeEntry criado com duração 7200 segundos, startedAt e endedAt preenchidos
+
+Scenario: Registro modo Início + Duração
+  When informo início 09:00 e duração 1h 30min
+  Then TimeEntry criado com endedAt 10:30 e duration 5400
+
+Scenario: Registro modo Apenas Duração
+  When informo apenas 2h 30min sem horário
+  Then TimeEntry criado com durationOnly true, duration 9000, startedAt null, endedAt null
 
 Scenario: Data retroativa exibe aviso
   When seleciono data anterior a hoje
   Then exibe aviso "Você está registrando horas em uma data anterior a hoje"
   And botão salvar permanece habilitado
 
-Scenario: Fim anterior ao início
+Scenario: Fim anterior ao início (modo Início/Fim)
   When informo início 16:00 e fim 14:00
   Then recebo HTTP 422
 
-Scenario: Data futura
-  When seleciono data futura
-  Then campo bloqueia a seleção
+Scenario: Duração abaixo do mínimo
+  When informo 0 horas e 0 minutos
+  Then botão salvar desabilitado e mensagem "Informe ao menos 1 minuto"
 ```
 
 ---
@@ -850,25 +867,44 @@ Quero acessar e alterar as configurações globais da plataforma
 Para adaptar o comportamento sem reiniciar o servidor
 
 Regras de negócio:
-- Apenas `admin`; alterações em tempo real sem reinicialização
+- `GET /settings`: aberto a todos os usuários autenticados (para que o formulário de lançamento saiba quais modos exibir)
+- `PATCH /settings`: restrito a `admin`
+- Alterações em tempo real sem reinicialização
 - Toda alteração registra `updatedAt` e `updatedBy`
+- Ao menos um modo de entrada de horas deve estar habilitado
 
 | Configuração | Tipo | Padrão | Descrição |
 |---|---|---|---|
 | `requireEmailVerification` | boolean | `true` | Quando `false`, login liberado sem confirmar e-mail |
+| `allowTimesMode` | boolean | `true` | Habilita modo Início/Fim no formulário de lançamento |
+| `allowStartDurationMode` | boolean | `true` | Habilita modo Início + Duração |
+| `allowDurationOnlyMode` | boolean | `false` | Habilita modo Apenas Duração (sem horário) |
 
 Critérios de aceite:
 ```gherkin
-Scenario: Consulta das configurações
+Scenario: Consulta das configurações (admin)
   Given autenticado como admin
   When acesso GET /settings
-  Then recebo configurações atuais
+  Then recebo todas as configurações incluindo os modos de entrada
+
+Scenario: Consulta das configurações (member/manager)
+  Given autenticado como member
+  When acesso GET /settings
+  Then recebo as configurações normalmente (sem 403)
 
 Scenario: Desativar verificação de e-mail
   When envio PATCH /settings com { "requireEmailVerification": false }
   Then configuração atualizada imediatamente
 
-Scenario: Não-admin acessa settings
+Scenario: Habilitar modo Apenas Duração
+  When envio PATCH /settings com { "allowDurationOnlyMode": true }
+  Then modal de lançamento passa a exibir a opção "Apenas Duração"
+
+Scenario: Tentar desabilitar todos os modos
+  When envio PATCH /settings com todos os modos false
+  Then botão Salvar fica desabilitado no frontend
+
+Scenario: Não-admin tenta alterar settings
   Then recebo HTTP 403
 ```
 
@@ -908,6 +944,77 @@ Scenario: Retry em falha
 
 Scenario: Não-admin tenta criar webhook
   Then recebo HTTP 403
+```
+
+---
+
+**US-21 — Relatório de alocação por equipe e colaborador**
+Como administrador ou gerente
+Quero visualizar quanto cada equipe e cada colaborador trabalhou em cada projeto
+Para identificar distribuição de esforço e alocação percentual
+
+Regras de negócio:
+- Apenas `admin` e `manager` acessam
+- Três granularidades: `day` (YYYY-MM-DD), `month` (YYYY-MM), `year` (YYYY)
+- Exibe duas visões em abas: **Por Equipe** e **Por Colaborador**
+- Para cada entidade (equipe ou membro): total de horas + barra de progresso por projeto com percentual
+- Equipes/membros sem lançamentos no período aparecem com 0h (não omitidos)
+- Lançamentos `durationOnly` são incluídos normalmente (somados pelo campo `duration`)
+- Percentuais calculados em relação ao total da própria entidade (não do período inteiro)
+
+Critérios de aceite:
+```gherkin
+Scenario: Relatório mensal por colaborador
+  Given autenticado como manager
+  When acesso GET /reports/allocation?granularity=month&value=2026-05
+  Then recebo lista de membros com totalSeconds, totalFormatted e byProject com percentuais
+
+Scenario: Relatório diário por equipe
+  When acesso com granularity=day&value=2026-05-18
+  Then recebo lista de equipes com distribuição por projeto no dia
+
+Scenario: Relatório anual
+  When acesso com granularity=year&value=2026
+  Then recebo totais do ano inteiro
+
+Scenario: Membro acessa relatório de alocação
+  Then recebo HTTP 403
+
+Scenario: Período sem lançamentos
+  Then equipes e membros aparecem com totalSeconds 0 e byProject vazio
+```
+
+---
+
+**US-22 — Configuração dos modos de entrada de horas**
+Como administrador
+Quero controlar quais modos de entrada de horas ficam disponíveis no formulário
+Para adaptar a experiência ao fluxo de trabalho da equipe
+
+Regras de negócio:
+- Três modos configuráveis independentemente: Início/Fim, Início+Duração, Apenas Duração
+- Ao menos um deve estar habilitado; frontend bloqueia salvar se todos desabilitados
+- Formulário de lançamento mostra toggle apenas quando 2+ modos estão ativos
+- Se apenas 1 modo ativo: toggle não exibido, formulário entra direto no modo habilitado
+- Alteração reflete imediatamente para todos os usuários logados (store recarregada ao salvar)
+
+Critérios de aceite:
+```gherkin
+Scenario: Admin desabilita Início/Fim e Início+Duração
+  When salva com apenas allowDurationOnlyMode true
+  Then formulário de lançamento exibe apenas campos Horas + Minutos sem toggle
+
+Scenario: Todos os modos habilitados
+  When abre modal de novo lançamento
+  Then toggle com 3 opções visível
+
+Scenario: Editar lançamento durationOnly com modo habilitado
+  When abre edição de lançamento com durationOnly true
+  Then modal abre no modo "Apenas Duração" com horas/minutos pré-preenchidos
+
+Scenario: Editar lançamento durationOnly com modo desabilitado
+  When allowDurationOnlyMode false mas lançamento existe como durationOnly
+  Then modal abre no primeiro modo disponível
 ```
 
 ---
@@ -1062,6 +1169,7 @@ GET/PATCH/DELETE    /projects/:projectId/tasks/:id
 ### Time Entries
 ```
 GET/POST/PATCH/DELETE /time-entries (+ GET /:id)
+GET   /time-entries/active
 POST  /time-entries/start
 PATCH /time-entries/:id/stop
 ```
@@ -1071,6 +1179,7 @@ PATCH /time-entries/:id/stop
 GET /reports/daily?date=YYYY-MM-DD&userId=...
 GET /reports/monthly?month=YYYY-MM&userId=...
 GET /reports/team?teamId=...&month=YYYY-MM
+GET /reports/allocation?granularity=day|month|year&value=YYYY-MM-DD|YYYY-MM|YYYY
 ```
 
 ### Settings
@@ -1129,7 +1238,7 @@ GET /api-docs-json
 src/
 ├── main.ts / App.vue
 ├── router/index.ts
-├── stores/          (auth, projects, teams, tasks, time-entries) — Pinia
+├── stores/          (auth, projects, teams, tasks, time-entries, settings) — Pinia
 ├── services/        (api.ts + interceptors, auth, projects, teams, tasks, time-entries, reports)
 ├── composables/     (useTimer, useToast, useAuth)
 ├── layouts/         (AuthLayout, AppLayout com sidebar + topbar)

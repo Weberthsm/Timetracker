@@ -9,44 +9,44 @@ export declare class WebhooksService {
     constructor(prisma: PrismaService, dispatcher: WebhooksDispatcher);
     private requireAdmin;
     create(dto: CreateWebhookDto, currentUser: JwtPayload): Promise<{
+        url: string;
         id: string;
         name: string;
         createdAt: Date;
         updatedAt: Date;
-        url: string;
         secret: string | null;
         events: string[];
         isActive: boolean;
         createdBy: string;
     }>;
     findAll(currentUser: JwtPayload): Promise<{
+        url: string;
         id: string;
         name: string;
         createdAt: Date;
         updatedAt: Date;
-        url: string;
         secret: string | null;
         events: string[];
         isActive: boolean;
         createdBy: string;
     }[]>;
     findOne(id: string, currentUser: JwtPayload): Promise<{
+        url: string;
         id: string;
         name: string;
         createdAt: Date;
         updatedAt: Date;
-        url: string;
         secret: string | null;
         events: string[];
         isActive: boolean;
         createdBy: string;
     }>;
     update(id: string, dto: UpdateWebhookDto, currentUser: JwtPayload): Promise<{
+        url: string;
         id: string;
         name: string;
         createdAt: Date;
         updatedAt: Date;
-        url: string;
         secret: string | null;
         events: string[];
         isActive: boolean;

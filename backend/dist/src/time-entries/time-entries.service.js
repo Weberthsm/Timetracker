@@ -53,15 +53,39 @@ let TimeEntriesService = class TimeEntriesService {
         await this.checkProjectAccess(dto.projectId, currentUser);
         if (dto.taskId)
             await this.checkTaskStatus(dto.taskId);
-        const start = new Date(dto.startedAt);
-        const end = new Date(dto.endedAt);
-        if (end <= start)
-            throw new common_1.UnprocessableEntityException('Hora de fim deve ser posterior ao início');
         const dateOnly = new Date(dto.date);
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         if (dateOnly > today)
             throw new common_1.UnprocessableEntityException('Não é possível lançar horas em datas futuras');
+        if (dto.durationOnly) {
+            if (!dto.durationSeconds || dto.durationSeconds < 60) {
+                throw new common_1.UnprocessableEntityException('Informe ao menos 1 minuto de duração');
+            }
+            const entry = await this.prisma.timeEntry.create({
+                data: {
+                    userId: currentUser.userId,
+                    projectId: dto.projectId,
+                    taskId: dto.taskId,
+                    description: dto.description,
+                    date: dateOnly,
+                    startedAt: null,
+                    endedAt: null,
+                    duration: dto.durationSeconds,
+                    durationOnly: true,
+                },
+                include: { project: true, task: true, user: { select: { id: true, name: true, email: true } } },
+            });
+            this.eventEmitter.emit('time_entry.created', entry);
+            return entry;
+        }
+        if (!dto.startedAt || !dto.endedAt) {
+            throw new common_1.UnprocessableEntityException('Informe o horário de início e fim');
+        }
+        const start = new Date(dto.startedAt);
+        const end = new Date(dto.endedAt);
+        if (end <= start)
+            throw new common_1.UnprocessableEntityException('Hora de fim deve ser posterior ao início');
         const duration = Math.floor((end.getTime() - start.getTime()) / 1000);
         const entry = await this.prisma.timeEntry.create({
             data: {
@@ -73,6 +97,7 @@ let TimeEntriesService = class TimeEntriesService {
                 startedAt: start,
                 endedAt: end,
                 duration,
+                durationOnly: false,
             },
             include: { project: true, task: true, user: { select: { id: true, name: true, email: true } } },
         });
@@ -158,7 +183,7 @@ let TimeEntriesService = class TimeEntriesService {
     }
     async startTimer(dto, currentUser) {
         const active = await this.prisma.timeEntry.findFirst({
-            where: { userId: currentUser.userId, endedAt: null },
+            where: { userId: currentUser.userId, endedAt: null, durationOnly: false },
         });
         if (active)
             throw new common_1.UnprocessableEntityException('Você já tem um timer ativo');
@@ -175,6 +200,7 @@ let TimeEntriesService = class TimeEntriesService {
                 startedAt: now,
                 endedAt: null,
                 duration: null,
+                durationOnly: false,
                 date: new Date(now.toDateString()),
             },
             include: { project: true, task: true },
@@ -195,6 +221,9 @@ let TimeEntriesService = class TimeEntriesService {
         if (entry.endedAt !== null) {
             throw new common_1.UnprocessableEntityException('Este lançamento não é um timer ativo');
         }
+        if (!entry.startedAt) {
+            throw new common_1.UnprocessableEntityException('Lançamento sem horário de início não pode ser parado como timer');
+        }
         const now = new Date();
         const duration = Math.floor((now.getTime() - entry.startedAt.getTime()) / 1000);
         const stopped = await this.prisma.timeEntry.update({
@@ -207,7 +236,7 @@ let TimeEntriesService = class TimeEntriesService {
     }
     async getActiveTimer(currentUser) {
         return this.prisma.timeEntry.findFirst({
-            where: { userId: currentUser.userId, endedAt: null },
+            where: { userId: currentUser.userId, endedAt: null, durationOnly: false },
             include: { project: true, task: true },
         });
     }

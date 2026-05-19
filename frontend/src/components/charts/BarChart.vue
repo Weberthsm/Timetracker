@@ -1,5 +1,5 @@
 <template>
-  <div class="relative w-full" style="height: 220px">
+  <div class="relative w-full cursor-pointer" style="height: 220px" title="Clique em uma barra para ver detalhes">
     <Bar :data="chartData" :options="chartOptions" />
   </div>
 </template>
@@ -22,6 +22,8 @@ const props = defineProps<{
   datasets: ChartDataset[]
 }>()
 
+const emit = defineEmits<{ 'segment-click': [index: number] }>()
+
 const chartData = computed(() => ({
   labels: props.labels,
   datasets: props.datasets.map((d) => ({
@@ -32,10 +34,13 @@ const chartData = computed(() => ({
   })),
 }))
 
-const chartOptions = {
+const chartOptions = computed(() => ({
   responsive: true,
   maintainAspectRatio: false,
   plugins: { legend: { display: false } },
+  onClick: (_event: unknown, elements: Array<{ index: number }>) => {
+    if (elements.length > 0) emit('segment-click', elements[0].index)
+  },
   scales: {
     y: {
       ticks: {
@@ -48,5 +53,5 @@ const chartOptions = {
     },
     x: { grid: { display: false } },
   },
-}
+}))
 </script>

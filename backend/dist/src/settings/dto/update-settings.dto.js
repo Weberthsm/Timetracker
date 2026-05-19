@@ -14,6 +14,9 @@ const class_validator_1 = require("class-validator");
 const swagger_1 = require("@nestjs/swagger");
 class UpdateSettingsDto {
     requireEmailVerification;
+    allowTimesMode;
+    allowStartDurationMode;
+    allowDurationOnlyMode;
 }
 exports.UpdateSettingsDto = UpdateSettingsDto;
 __decorate([
@@ -22,4 +25,22 @@ __decorate([
     (0, class_validator_1.IsBoolean)(),
     __metadata("design:type", Boolean)
 ], UpdateSettingsDto.prototype, "requireEmailVerification", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ description: 'Habilita modo Início/Fim no formulário de lançamento' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
+], UpdateSettingsDto.prototype, "allowTimesMode", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ description: 'Habilita modo Início + Duração no formulário de lançamento' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
+], UpdateSettingsDto.prototype, "allowStartDurationMode", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ description: 'Habilita modo Só Duração no formulário de lançamento' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
+], UpdateSettingsDto.prototype, "allowDurationOnlyMode", void 0);
 //# sourceMappingURL=update-settings.dto.js.map

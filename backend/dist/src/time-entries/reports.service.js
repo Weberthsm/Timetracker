@@ -28,9 +28,9 @@ let ReportsService = class ReportsService {
         }
         const targetDate = new Date(date);
         const entries = await this.prisma.timeEntry.findMany({
-            where: { userId, date: targetDate, endedAt: { not: null } },
+            where: { userId, date: targetDate, OR: [{ endedAt: { not: null } }, { durationOnly: true }] },
             include: { project: { select: { id: true, name: true, color: true } }, task: { select: { id: true, title: true } } },
-            orderBy: { startedAt: 'asc' },
+            orderBy: [{ startedAt: { sort: 'asc', nulls: 'last' } }, { createdAt: 'asc' }],
         });
         const totalDaySeconds = entries.reduce((sum, e) => sum + (e.duration ?? 0), 0);
         const byProject = new Map();
@@ -74,7 +74,7 @@ let ReportsService = class ReportsService {
         const firstDay = new Date(year, mon - 1, 1);
         const lastDay = new Date(year, mon, 0);
         const entries = await this.prisma.timeEntry.findMany({
-            where: { userId, date: { gte: firstDay, lte: lastDay }, endedAt: { not: null } },
+            where: { userId, date: { gte: firstDay, lte: lastDay }, OR: [{ endedAt: { not: null } }, { durationOnly: true }] },
             include: { project: { select: { id: true, name: true, color: true } } },
         });
         const totalMonthSeconds = entries.reduce((sum, e) => sum + (e.duration ?? 0), 0);
@@ -130,7 +130,7 @@ let ReportsService = class ReportsService {
             }),
             this.prisma.team.findMany({ select: { id: true, name: true } }),
             this.prisma.timeEntry.findMany({
-                where: { date: { gte: firstDay, lte: lastDay }, endedAt: { not: null } },
+                where: { date: { gte: firstDay, lte: lastDay }, OR: [{ endedAt: { not: null } }, { durationOnly: true }] },
                 select: {
                     userId: true, projectId: true, duration: true,
                     project: { select: { id: true, name: true, color: true } },
@@ -233,7 +233,7 @@ let ReportsService = class ReportsService {
             throw new common_1.ForbiddenException('Equipe não encontrada');
         const result = await Promise.all(team.members.map(async (member) => {
             const entries = await this.prisma.timeEntry.findMany({
-                where: { userId: member.id, date: { gte: firstDay, lte: lastDay }, endedAt: { not: null } },
+                where: { userId: member.id, date: { gte: firstDay, lte: lastDay }, OR: [{ endedAt: { not: null } }, { durationOnly: true }] },
                 include: { project: { select: { id: true, name: true, color: true } } },
             });
             const totalSeconds = entries.reduce((s, e) => s + (e.duration ?? 0), 0);

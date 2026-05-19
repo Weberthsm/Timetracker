@@ -106,7 +106,13 @@
             <div class="flex-1 min-w-0">
               <p class="text-sm font-medium text-gray-900 truncate">{{ entry.task?.title ?? entry.description ?? '—' }}</p>
               <p class="text-xs text-gray-500">
-                {{ entry.project?.name ?? '—' }} · {{ formatTime(entry.startedAt) }}–{{ entry.endedAt ? formatTime(entry.endedAt) : '...' }}
+                {{ entry.project?.name ?? '—' }}
+                <template v-if="entry.durationOnly">
+                  · <span class="italic text-gray-400">sem horário</span>
+                </template>
+                <template v-else>
+                  · {{ entry.startedAt ? formatTime(entry.startedAt) : '—' }}–{{ entry.endedAt ? formatTime(entry.endedAt) : '...' }}
+                </template>
               </p>
             </div>
             <span class="text-sm font-mono text-gray-600 flex-shrink-0">{{ formatDuration(entry.duration ?? 0) }}</span>
@@ -176,10 +182,15 @@ const filtered = computed(() =>
 
 const grouped = computed(() => {
   const g: Record<string, TimeEntry[]> = {}
-  // Sort descending by date so most recent day appears first
-  const sorted = [...filtered.value].sort((a, b) => b.startedAt.localeCompare(a.startedAt))
+  // Sort descending; durationOnly entries (no startedAt) fall at the end of the day
+  const sorted = [...filtered.value].sort((a, b) => {
+    const aKey = a.startedAt ?? (a.date + 'T99:99')
+    const bKey = b.startedAt ?? (b.date + 'T99:99')
+    return bKey.localeCompare(aKey)
+  })
   for (const e of sorted) {
-    const d = e.startedAt.slice(0, 10)
+    const d = (e.startedAt ?? e.date ?? '').slice(0, 10)
+    if (!d) continue
     if (!g[d]) g[d] = []
     g[d].push(e)
   }
@@ -192,7 +203,7 @@ function groupTotal(group: TimeEntry[]) {
   return group.reduce((s, e) => s + (e.duration ?? 0), 0)
 }
 
-function formatTime(iso: string) { return format(new Date(iso), 'HH:mm') }
+function formatTime(iso: string | null) { return iso ? format(new Date(iso), 'HH:mm') : '—' }
 
 function formatDuration(secs: number) {
   const h = Math.floor(secs / 3600)

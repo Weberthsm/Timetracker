@@ -1,10 +1,15 @@
 <template>
   <div v-if="hasData" class="flex items-center gap-6">
-    <div class="w-48 h-48 flex-shrink-0">
+    <div class="w-48 h-48 flex-shrink-0 cursor-pointer" title="Clique para ver detalhes">
       <Doughnut :data="chartData" :options="chartOptions" />
     </div>
     <div class="flex flex-col gap-2">
-      <div v-for="(item, i) in items" :key="i" class="flex items-center gap-2 text-sm">
+      <div
+        v-for="(item, i) in items"
+        :key="i"
+        class="flex items-center gap-2 text-sm cursor-pointer hover:bg-gray-50 rounded px-1 -mx-1 py-0.5 transition-colors"
+        @click="emit('segment-click', i)"
+      >
         <span class="w-3 h-3 rounded-full flex-shrink-0" :style="{ backgroundColor: palette[i % palette.length] }" />
         <span class="text-gray-700">{{ item.label }}</span>
         <span class="text-gray-500 ml-auto pl-4">{{ item.percentage }}%</span>
@@ -30,6 +35,8 @@ const props = defineProps<{
   items: { label: string; percentage: number; duration: number }[]
 }>()
 
+const emit = defineEmits<{ 'segment-click': [index: number] }>()
+
 const hasData = computed(() => props.items.length > 0)
 
 const chartData = computed(() => ({
@@ -41,10 +48,13 @@ const chartData = computed(() => ({
   }],
 }))
 
-const chartOptions = {
+const chartOptions = computed(() => ({
   responsive: true,
   maintainAspectRatio: false,
   plugins: { legend: { display: false } },
   cutout: '70%',
-}
+  onClick: (_event: unknown, elements: Array<{ index: number }>) => {
+    if (elements.length > 0) emit('segment-click', elements[0].index)
+  },
+}))
 </script>

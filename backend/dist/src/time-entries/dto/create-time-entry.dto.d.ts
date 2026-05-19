@@ -3,6 +3,8 @@ export declare class CreateTimeEntryDto {
     taskId?: string;
     description?: string;
     date: string;
-    startedAt: string;
-    endedAt: string;
+    startedAt?: string;
+    endedAt?: string;
+    durationOnly?: boolean;
+    durationSeconds?: number;
 }

@@ -1,6 +1,8 @@
 import { IsString, IsUrl, IsOptional, IsBoolean, IsArray, ArrayMinSize, MinLength, MaxLength, IsIn } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
+const VALID_GRANULARITIES = ['summary', 'user', 'team'] as const;
+
 const VALID_EVENTS = [
   'time_entry.created',
   'time_entry.updated',
@@ -37,4 +39,13 @@ export class CreateWebhookDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+  @ApiPropertyOptional({
+    enum: VALID_GRANULARITIES,
+    default: 'summary',
+    description: 'Granularity for report events (report.daily / report.monthly)',
+  })
+  @IsOptional()
+  @IsIn(VALID_GRANULARITIES as unknown as string[])
+  reportGranularity?: string;
 }

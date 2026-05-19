@@ -18,7 +18,7 @@ export declare class ReportsController {
         entries: {
             id: string;
             description: string | null;
-            startedAt: Date;
+            startedAt: Date | null;
             endedAt: Date | null;
             duration: number | null;
             durationFormatted: string;
