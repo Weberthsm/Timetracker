@@ -44,7 +44,12 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = newUser
   }
 
-  function logout() {
+  async function logout() {
+    try {
+      await authService.logout()
+    } catch {
+      // ignora erro — limpa sessão localmente de qualquer forma
+    }
     user.value = null
     token.value = null
     refreshToken.value = null

@@ -3,10 +3,15 @@ import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios'
 export type ToastFn = (message: string, type?: 'error' | 'warning' | 'info') => void
 let showToast: ToastFn = () => {}
 let navigateToLogin: () => void = () => {}
+let onTokensRefreshed: ((accessToken: string, refreshToken: string) => void) | null = null
 
 export function configureApi(toast: ToastFn, loginNav: () => void) {
   showToast = toast
   navigateToLogin = loginNav
+}
+
+export function setOnTokensRefreshed(fn: (accessToken: string, refreshToken: string) => void) {
+  onTokensRefreshed = fn
 }
 
 const api = axios.create({
@@ -81,6 +86,8 @@ api.interceptors.response.use(
         localStorage.setItem('auth_token', newToken)
         // Always persist the rotated refresh token returned by the server
         if (newRefreshToken) localStorage.setItem('refresh_token', newRefreshToken)
+        // Sync Pinia store so authStore.token nunca fica stale em memória
+        if (onTokensRefreshed) onTokensRefreshed(newToken, newRefreshToken)
 
         api.defaults.headers.common.Authorization = `Bearer ${newToken}`
         originalRequest.headers.Authorization = `Bearer ${newToken}`

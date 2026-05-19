@@ -54,25 +54,29 @@ const router = createRouter({
 router.beforeEach(async (to) => {
   const authStore = useAuthStore()
 
+  // 1. Sem token → redireciona para login
   if (to.meta.requiresAuth && !authStore.isAuthenticated) {
     return { name: 'login' }
   }
 
+  // 2. Já autenticado tentando acessar página pública (login, register…) → vai para o app
   if (!to.meta.requiresAuth && authStore.isAuthenticated) {
     return { name: 'dashboard' }
   }
 
-  if (to.meta.roles && !to.meta.roles.includes(authStore.user?.role as Role)) {
-    return { name: 'dashboard' }
-  }
-
+  // 3. Token presente mas user ainda não carregado (ex: F5) → carrega ANTES do check de roles
   if (authStore.token && !authStore.user) {
     try {
       await authStore.fetchCurrentUser()
     } catch {
-      authStore.logout()
+      await authStore.logout()
       return { name: 'login' }
     }
+  }
+
+  // 4. Check de roles — executado somente depois do user estar carregado
+  if (to.meta.roles && authStore.user && !to.meta.roles.includes(authStore.user.role as Role)) {
+    return { name: 'dashboard' }
   }
 })
 

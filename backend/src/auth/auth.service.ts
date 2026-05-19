@@ -148,16 +148,18 @@ export class AuthService {
       throw new UnauthorizedException('Refresh token inválido ou expirado');
     }
 
-    await this.prisma.refreshToken.delete({ where: { id: record.id } });
-
     const newRaw = randomToken();
-    await this.prisma.refreshToken.create({
-      data: {
-        userId: record.userId,
-        token: sha256(newRaw),
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-      },
-    });
+
+    await this.prisma.$transaction([
+      this.prisma.refreshToken.delete({ where: { id: record.id } }),
+      this.prisma.refreshToken.create({
+        data: {
+          userId: record.userId,
+          token: sha256(newRaw),
+          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        },
+      }),
+    ]);
 
     const payload = { sub: record.user.id, email: record.user.email, role: record.user.role };
     const accessToken = this.jwtService.sign(payload);
