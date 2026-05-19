@@ -4,6 +4,7 @@ export type ToastFn = (message: string, type?: 'error' | 'warning' | 'info') => 
 let showToast: ToastFn = () => {}
 let navigateToLogin: () => void = () => {}
 let onTokensRefreshed: ((accessToken: string, refreshToken: string) => void) | null = null
+let onSessionExpired: (() => void) | null = null
 
 export function configureApi(toast: ToastFn, loginNav: () => void) {
   showToast = toast
@@ -12,6 +13,13 @@ export function configureApi(toast: ToastFn, loginNav: () => void) {
 
 export function setOnTokensRefreshed(fn: (accessToken: string, refreshToken: string) => void) {
   onTokensRefreshed = fn
+}
+
+/** Registra callback chamado quando a sessão expira (refresh falhou).
+ *  Deve limpar o estado do Pinia store para que isAuthenticated vire false
+ *  antes de navegar para /login — evita loop de redirecionamento. */
+export function setOnSessionExpired(fn: () => void) {
+  onSessionExpired = fn
 }
 
 const api = axios.create({
@@ -58,6 +66,7 @@ api.interceptors.response.use(
       const refreshToken = localStorage.getItem('refresh_token')
       if (!refreshToken) {
         localStorage.removeItem('auth_token')
+        onSessionExpired?.()   // limpa Pinia antes de navegar
         navigateToLogin()
         return Promise.reject(error)
       }
@@ -97,6 +106,7 @@ api.interceptors.response.use(
         processQueue(refreshError, null)
         localStorage.removeItem('auth_token')
         localStorage.removeItem('refresh_token')
+        onSessionExpired?.()   // limpa Pinia antes de navegar
         navigateToLogin()
         return Promise.reject(refreshError)
       } finally {

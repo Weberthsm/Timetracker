@@ -44,12 +44,9 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = newUser
   }
 
-  async function logout() {
-    try {
-      await authService.logout()
-    } catch {
-      // ignora erro — limpa sessão localmente de qualquer forma
-    }
+  /** Limpa estado local sem chamar o backend. Usado pelo interceptor quando
+   *  o refresh falha — o token já é inválido, não há nada para revogar. */
+  function clearSession() {
     user.value = null
     token.value = null
     refreshToken.value = null
@@ -57,15 +54,23 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.removeItem('refresh_token')
   }
 
+  /** Logout intencional: revoga tokens no servidor e limpa estado local. */
+  async function logout() {
+    try {
+      await authService.logout()
+    } catch {
+      // ignora erro de rede — limpa sessão localmente de qualquer forma
+    }
+    clearSession()
+  }
+
   async function fetchCurrentUser() {
     try {
       const res = await authService.me()
       user.value = (res.data as { data: User }).data
     } catch (err: unknown) {
-      const e = err as { response?: { status: number } }
-      if (e.response?.status === 401) {
-        logout()
-      }
+      // O interceptor já limpou os tokens e chamou clearSession() via callback.
+      // Não chamamos logout() aqui para não disparar chamada extra ao backend.
       throw err
     }
   }
@@ -78,5 +83,5 @@ export const useAuthStore = defineStore('auth', () => {
     await fetchCurrentUser()
   }
 
-  return { user, token, refreshToken, isAuthenticated, setToken, setRefreshToken, setAuth, setUser, logout, fetchCurrentUser, login }
+  return { user, token, refreshToken, isAuthenticated, setToken, setRefreshToken, setAuth, setUser, clearSession, logout, fetchCurrentUser, login }
 })

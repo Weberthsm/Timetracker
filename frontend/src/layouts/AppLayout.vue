@@ -80,7 +80,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useSettingsStore } from '@/stores/settings'
-import { setOnTokensRefreshed } from '@/services/api'
+import { setOnTokensRefreshed, setOnSessionExpired } from '@/services/api'
 import ActiveTimer from '@/components/timer/ActiveTimer.vue'
 import ToastContainer from '@/components/ui/ToastContainer.vue'
 
@@ -93,10 +93,17 @@ const dropdownOpen = ref(false)
 
 onMounted(() => {
   settingsStore.load()
+
   // Mantém o Pinia store sincronizado quando o interceptor renova o access token silenciosamente
   setOnTokensRefreshed((at, rt) => {
     authStore.setToken(at)
     authStore.setRefreshToken(rt)
+  })
+
+  // Limpa o Pinia store quando o refresh falha — garante que isAuthenticated
+  // vire false ANTES de navegar para /login, evitando loop de redirecionamento
+  setOnSessionExpired(() => {
+    authStore.clearSession()
   })
 })
 
